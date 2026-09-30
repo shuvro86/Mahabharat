@@ -1,0 +1,19 @@
+.hall-of-frame .hof-hero { isolation: isolate; overflow: hidden; background: #17120f; }
+.hall-of-frame .hof-art { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center 42%; animation: hof-drift 28s ease-in-out infinite alternate; }
+.hall-of-frame .hof-shade { position:absolute; inset:0; background:linear-gradient(90deg,rgba(7,9,14,.9),rgba(7,9,14,.54) 45%,rgba(7,9,14,.06)),linear-gradient(0deg,rgba(7,9,14,.75),transparent 65%); }
+.hall-of-frame .hof-day-badge { width:max-content; border:1px solid rgba(252,211,77,.48); border-radius:999px; background:rgba(38,24,9,.72); padding:.4rem .8rem; color:#fde68a; font-size:.65rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; backdrop-filter:blur(8px); }
+.hall-of-frame .hof-primary,.hall-of-frame .hof-secondary { border-radius:.65rem; padding:.65rem .9rem; font-size:.75rem; font-weight:700; transition:background .2s ease,border-color .2s ease; }
+.hall-of-frame .hof-primary { border:1px solid #fbbf24; background:#fbbf24; color:#17120b; }
+.hall-of-frame .hof-primary:hover { background:#fcd34d; }
+.hall-of-frame .hof-secondary { border:1px solid rgba(251,191,36,.28); background:rgba(255,255,255,.035); color:#fcd34d; }
+.hall-of-frame .hof-secondary:hover { border-color:rgba(251,191,36,.7); background:rgba(251,191,36,.1); }
+.hall-of-frame .hof-theme-card { background:linear-gradient(145deg,rgba(245,158,11,.075),rgba(17,20,29,.7)); }
+.hall-of-frame .hof-meta { display:grid; gap:.35rem; border-radius:.65rem; background:rgba(0,0,0,.2); padding:.7rem; }
+.hall-of-frame .hof-meta span { color:#9ca3af; font-size:.65rem; }
+.hall-of-frame .hof-meta strong { color:#e5e7eb; font-size:.72rem; }
+.hall-of-frame .hof-character { display:flex; flex-direction:column; gap:.15rem; border:1px solid rgba(251,191,36,.18); border-radius:.7rem; padding:.55rem .8rem; color:#fde68a; font-size:.75rem; font-weight:800; text-align:left; }
+.hall-of-frame .hof-character span { color:#9ca3af; font-size:.62rem; font-weight:500; }
+.hall-of-frame .hof-character:hover { background:rgba(251,191,36,.08); }
+.hall-of-frame .hof-sunset-glow { position:absolute; z-index:1; width:20rem; height:20rem; right:0; bottom:-15rem; border-radius:50%; background:rgba(251,146,60,.22); filter:blur(55px); pointer-events:none; }
+@keyframes hof-drift { from { transform:scale(1.015) translateX(0); } to { transform:scale(1.07) translateX(-.7%); } }
+@media(prefers-reduced-motion:reduce) { .hall-of-frame .hof-art { animation:none; } }

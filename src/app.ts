@@ -16,6 +16,7 @@ import quizRoutes from "./routes/quizRoutes";
 import searchHistoryRoutes from "./routes/searchHistoryRoutes";
 import fullGitaRoutes from "./modules/fullGita/routes";
 import { fullGitaPage } from "./modules/fullGita/page";
+import { hallOfFramePage } from "./modules/hallOfFrame/page";
 
 // Load environment variables
 dotenv.config();
@@ -63,6 +64,7 @@ app.get("/", (req: Request, res: Response) => {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Lora:ital,wght@0,400;0,600;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/epic-avatars.css">
+  <link rel="stylesheet" href="/assets/hall-of-frame.css">
   <style>
     body {
       font-family: 'Plus Jakarta Sans', sans-serif;
@@ -278,6 +280,10 @@ app.get("/", (req: Request, res: Response) => {
       <button onclick="switchTab('characters')" id="btn-characters" class="nav-btn flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-semibold transition w-full whitespace-nowrap text-gray-400 hover:text-yellow-500 hover:bg-gray-800/30">
         <i class="fa-solid fa-shield-halved text-lg w-6"></i>
         <span>Epic Characters (50)</span>
+      </button>
+      <button onclick="switchTab('hall-of-frame')" id="btn-hall-of-frame" class="nav-btn flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-semibold transition w-full whitespace-nowrap text-gray-400 hover:text-yellow-500 hover:bg-gray-800/30">
+        <i class="fa-solid fa-film text-lg w-6"></i>
+        <span>Hall of Frame</span>
       </button>
       <button onclick="switchTab('quiz')" id="btn-quiz" class="nav-btn flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-semibold transition w-full whitespace-nowrap text-gray-400 hover:text-yellow-500 hover:bg-gray-800/30">
         <i class="fa-solid fa-trophy text-lg w-6"></i>
@@ -746,6 +752,8 @@ app.get("/", (req: Request, res: Response) => {
         </div>
       </div>
 
+      ${hallOfFramePage()}
+
     </section>
   </main>
 
@@ -998,6 +1006,7 @@ app.get("/", (req: Request, res: Response) => {
   <!-- CLIENT SCRIPTS -->
   <script src="/assets/character-art-notes.js"></script>
   <script src="/assets/epic-avatars.js"></script>
+  <script src="/assets/hall-of-frame.js"></script>
   <script>
     const quickDemoAllowed = ${JSON.stringify(process.env.NODE_ENV !== "production")};
     let currentTab = "dashboard";
@@ -1137,6 +1146,7 @@ app.get("/", (req: Request, res: Response) => {
 
     function switchTab(tab) {
       if (tab !== "characters" && window.EpicAvatars) window.EpicAvatars.stopVoice();
+      if (tab !== "hall-of-frame" && window.hallFrameStopStory) window.hallFrameStopStory();
       currentTab = tab;
       
       document.querySelectorAll(".nav-btn").forEach(btn => {
@@ -1149,7 +1159,7 @@ app.get("/", (req: Request, res: Response) => {
         activeBtn.classList.add("bg-yellow-600/10", "text-yellow-500", "border", "border-yellow-500/20");
       }
 
-      ["dashboard", "vocab", "shlokas", "characters", "quiz"].forEach(t => {
+      ["dashboard", "vocab", "shlokas", "characters", "hall-of-frame", "quiz"].forEach(t => {
         document.getElementById("tab-" + t).classList.add("hidden");
       });
 
