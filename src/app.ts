@@ -1147,6 +1147,7 @@ app.get("/", (req: Request, res: Response) => {
     function switchTab(tab) {
       if (tab !== "characters" && window.EpicAvatars) window.EpicAvatars.stopVoice();
       if (tab !== "hall-of-frame" && window.hallFrameStopStory) window.hallFrameStopStory();
+      if (tab !== "hall-of-frame" && window.hallFrameStopScene) window.hallFrameStopScene();
       currentTab = tab;
       
       document.querySelectorAll(".nav-btn").forEach(btn => {

@@ -9,13 +9,18 @@ export function hallOfFramePage(): string {
 
     <article class="hof-feature overflow-hidden rounded-2xl border border-amber-500/30 bg-[#0a0d13] shadow-2xl">
       <div class="hof-hero relative min-h-[350px] md:min-h-[470px]">
-        <img class="hof-art" src="/assets/hall-of-frame/bhishma-day-10.png" alt="Arjuna and Shikhandi face Bhishma on the Kurukshetra battlefield at sunset" width="1672" height="941" fetchpriority="high">
+        <video id="hall-frame-video" class="hof-art" preload="metadata" playsinline poster="/assets/hall-of-frame/bhishma-day-10.png" aria-label="Animated cinematic scene of Bhishma's fall on the tenth day">
+          <source src="/assets/hall-of-frame/bhishma-day-10.mp4" type="video/mp4">
+          Your browser does not support this video.
+        </video>
         <div class="hof-shade"></div>
         <div class="hof-hero-copy relative z-10 flex min-h-[350px] md:min-h-[470px] flex-col justify-end p-6 md:p-10">
           <span class="hof-day-badge">Bhishma Parva · Day 10</span>
           <h3 class="epic-title mt-4 max-w-3xl text-3xl md:text-5xl font-black leading-tight text-white">The Bed of Arrows</h3>
           <p class="mt-3 max-w-2xl text-sm md:text-base leading-relaxed text-gray-200">A turning point at sunset: Bhishma lowers his bow, and Arjuna faces the cost of a duty he cannot set aside.</p>
           <div class="mt-5 flex flex-wrap gap-2">
+            <button type="button" id="hof-video-toggle" onclick="hallFrameToggleVideo()" aria-pressed="false" class="hof-primary"><i class="fa-solid fa-play mr-2"></i><span id="hof-video-label">Play cinematic scene</span></button>
+            <a href="/assets/hall-of-frame/bhishma-day-10.mp4" download="bhishma-day-10.mp4" class="hof-secondary">Download MP4</a>
             <button type="button" onclick="hallFrameReadStory()" class="hof-primary"><i class="fa-solid fa-volume-high mr-2"></i><span id="hof-read-label">Hear the moment</span></button>
             <button type="button" onclick="hallFrameStopStory()" class="hof-secondary">Stop narration</button>
           </div>
