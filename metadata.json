@@ -1,0 +1,10 @@
+{
+  "name": "Mahabharat Spaced Repetition",
+  "description": "Mahabharat Vocabulary & Spaced Repetition Study Engine",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
