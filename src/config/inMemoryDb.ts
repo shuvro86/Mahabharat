@@ -6,6 +6,7 @@ import { Shloka } from "../models/Shloka";
 import { Progress } from "../models/Progress";
 import { QuizHistory } from "../models/QuizHistory";
 import { SearchHistory } from "../models/SearchHistory";
+import { VerificationChallenge } from "../models/VerificationChallenge";
 
 // In-Memory Storage Tables
 const memoryStore: {
@@ -16,6 +17,7 @@ const memoryStore: {
   progresses: any[];
   quizHistories: any[];
   searchHistories: any[];
+  verificationChallenges: any[];
 } = {
   users: [],
   words: [],
@@ -23,7 +25,8 @@ const memoryStore: {
   shlokas: [],
   progresses: [],
   quizHistories: [],
-  searchHistories: []
+  searchHistories: [],
+  verificationChallenges: []
 };
 
 function getCollection(modelName: string): any[] {
@@ -35,6 +38,7 @@ function getCollection(modelName: string): any[] {
     case "Progress": return memoryStore.progresses;
     case "QuizHistory": return memoryStore.quizHistories;
     case "SearchHistory": return memoryStore.searchHistories;
+    case "VerificationChallenge": return memoryStore.verificationChallenges;
     default: return [];
   }
 }
@@ -121,6 +125,11 @@ function matchesQuery(doc: any, query: any): boolean {
         const targetDate = new Date(val.$lte).getTime();
         const docDate = new Date(docVal).getTime();
         if (isNaN(docDate) || docDate > targetDate) return false;
+      }
+      if (val.$gt !== undefined) {
+        const targetDate = new Date(val.$gt).getTime();
+        const docDate = new Date(docVal).getTime();
+        if (isNaN(docDate) || docDate <= targetDate) return false;
       }
     } else if (val !== undefined) {
       const targetStr = val?.toString ? val.toString() : String(val);
@@ -361,6 +370,7 @@ export function patchModelForInMemory(Model: any, modelName: string) {
       case "Progress": memoryStore.progresses = remaining; break;
       case "QuizHistory": memoryStore.quizHistories = remaining; break;
       case "SearchHistory": memoryStore.searchHistories = remaining; break;
+      case "VerificationChallenge": memoryStore.verificationChallenges = remaining; break;
     }
 
     return { deletedCount };
@@ -375,6 +385,7 @@ export function patchAllModels() {
   patchModelForInMemory(Progress, "Progress");
   patchModelForInMemory(QuizHistory, "QuizHistory");
   patchModelForInMemory(SearchHistory, "SearchHistory");
+  patchModelForInMemory(VerificationChallenge, "VerificationChallenge");
 }
 
 export function clearInMemoryStore() {
@@ -385,4 +396,5 @@ export function clearInMemoryStore() {
   memoryStore.progresses = [];
   memoryStore.quizHistories = [];
   memoryStore.searchHistories = [];
+  memoryStore.verificationChallenges = [];
 }

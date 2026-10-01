@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.JWT_ACCESS_SECRET ||
+const jwtSecret = () => process.env.JWT_SECRET || process.env.JWT_ACCESS_SECRET ||
   (process.env.NODE_ENV === "production" ? "" : "mahabharat-secret-key-108");
 
 export interface AuthenticatedRequest extends Request {
@@ -12,7 +12,8 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export const authenticateJWT = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
-  if (!JWT_SECRET) {
+  const secret = jwtSecret();
+  if (!secret) {
     res.status(503).json({ error: "Authentication is not configured." });
     return;
   }
@@ -44,7 +45,7 @@ export const authenticateJWT = (req: AuthenticatedRequest, res: Response, next: 
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; role: string };
+    const decoded = jwt.verify(token, secret) as { id: string; role: string };
     req.user = decoded;
     next();
   } catch (err) {

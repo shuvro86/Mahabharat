@@ -4,6 +4,11 @@ export interface IUser extends Document {
   username: string;
   password?: string; // Optional for guests
   fullName?: string; // User's full name
+  usernameKey?: string;
+  email?: string;
+  mobile?: string;
+  emailVerifiedAt?: Date;
+  mobileVerifiedAt?: Date;
   role: "admin" | "student" | "guest";
   streak: number;
   lastActive?: Date;
@@ -27,6 +32,11 @@ const UserSchema = new Schema<IUser>(
       type: String,
       trim: true,
     },
+    usernameKey: { type: String, lowercase: true, trim: true, unique: true, sparse: true },
+    email: { type: String, lowercase: true, trim: true, unique: true, sparse: true },
+    mobile: { type: String, trim: true, unique: true, sparse: true },
+    emailVerifiedAt: Date,
+    mobileVerifiedAt: Date,
     role: {
       type: String,
       enum: ["admin", "student", "guest"],

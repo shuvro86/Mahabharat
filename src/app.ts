@@ -31,8 +31,16 @@ app.use(express.json());
 // Set up rate limiting
 app.use(rateLimiter);
 
-// Connect to Database
-connectDB();
+// Complete database startup before serving API requests.
+app.use("/api", async (_req: Request, res: Response, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error("Database unavailable:", error);
+    res.status(503).json({ error: "The database is temporarily unavailable." });
+  }
+});
 
 // API Routes
 app.use("/api/auth", authRoutes);
@@ -896,6 +904,16 @@ app.get("/", (req: Request, res: Response) => {
             </div>
           </div>
 
+          <div id="email-field" class="hidden space-y-1.5">
+            <label for="auth-email" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">Email address</label>
+            <input type="email" id="auth-email" autocomplete="email" placeholder="you@example.com" class="w-full bg-[#121622] border border-gray-800 text-sm text-gray-200 px-3.5 py-3 rounded-xl focus:outline-none focus:border-yellow-500">
+          </div>
+
+          <div id="mobile-field" class="hidden space-y-1.5">
+            <label for="auth-mobile" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">Mobile number with country code</label>
+            <input type="tel" id="auth-mobile" autocomplete="tel" placeholder="+8801712345678" class="w-full bg-[#121622] border border-gray-800 text-sm text-gray-200 px-3.5 py-3 rounded-xl focus:outline-none focus:border-yellow-500">
+          </div>
+
           <div id="username-field" class="space-y-1.5">
             <label id="username-label" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">Username</label>
             <div class="relative">
@@ -989,6 +1007,32 @@ app.get("/", (req: Request, res: Response) => {
           </div>
         </form>
 
+        <form id="auth-otp-form" onsubmit="completeAuthVerification(event)" class="hidden space-y-4">
+          <p id="auth-otp-intro" class="text-xs leading-relaxed text-gray-300">Enter the codes sent to your email and mobile number.</p>
+          <div class="space-y-1.5">
+            <label for="auth-email-code" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">Email code</label>
+            <div class="flex gap-2">
+              <input id="auth-email-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" pattern="[0-9]{4,10}" required placeholder="Code from email" class="min-w-0 flex-1 bg-[#121622] border border-gray-800 text-sm text-gray-200 px-3.5 py-3 rounded-xl focus:outline-none focus:border-yellow-500">
+              <button type="button" onclick="resendAuthCode('email')" class="text-xs text-yellow-400 hover:underline">Resend</button>
+            </div>
+          </div>
+          <div class="space-y-1.5">
+            <label for="auth-mobile-code" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">Mobile code</label>
+            <div class="flex gap-2">
+              <input id="auth-mobile-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" pattern="[0-9]{4,10}" required placeholder="Code from SMS" class="min-w-0 flex-1 bg-[#121622] border border-gray-800 text-sm text-gray-200 px-3.5 py-3 rounded-xl focus:outline-none focus:border-yellow-500">
+              <button type="button" onclick="resendAuthCode('mobile')" class="text-xs text-yellow-400 hover:underline">Resend</button>
+            </div>
+          </div>
+          <div id="auth-reset-password-fields" class="hidden space-y-3">
+            <label for="auth-reset-password" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">New password</label>
+            <input id="auth-reset-password" type="password" autocomplete="new-password" minlength="10" placeholder="At least 10 characters, a letter, and a number" class="w-full bg-[#121622] border border-gray-800 text-sm text-gray-200 px-3.5 py-3 rounded-xl focus:outline-none focus:border-yellow-500">
+            <label for="auth-reset-confirm" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">Confirm new password</label>
+            <input id="auth-reset-confirm" type="password" autocomplete="new-password" minlength="10" placeholder="Confirm new password" class="w-full bg-[#121622] border border-gray-800 text-sm text-gray-200 px-3.5 py-3 rounded-xl focus:outline-none focus:border-yellow-500">
+          </div>
+          <button type="submit" id="auth-otp-submit" class="w-full bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-950 font-black py-3.5 rounded-xl text-xs uppercase tracking-widest">Verify and continue</button>
+          <button type="button" onclick="toggleAuthMode(authMode)" class="w-full text-xs text-gray-400 hover:text-yellow-400">Edit account details</button>
+        </form>
+
         <div id="back-to-login-container" class="hidden pt-2 text-center text-xs text-gray-400">
           Remembered your password? 
           <button onclick="toggleAuthMode('login')" class="text-yellow-500 hover:underline font-bold ml-1 cursor-pointer">
@@ -1048,9 +1092,11 @@ app.get("/", (req: Request, res: Response) => {
       try {
         const res = await fetch("/api/words");
         if (res.ok) {
-          document.getElementById("db-banner-text").innerText = "Connected to high-performance local MongoDB engine.";
+          document.getElementById("db-banner-text").innerText = "Study data service connected.";
           document.getElementById("db-banner").classList.add("bg-green-600/10", "text-green-500");
           document.getElementById("db-banner").classList.remove("bg-yellow-600/10", "text-yellow-500");
+        } else {
+          document.getElementById("db-banner-text").innerText = "Database connection offline or starting...";
         }
       } catch (err) {
         document.getElementById("db-banner-text").innerText = "Database connection offline or starting...";
@@ -1099,7 +1145,7 @@ app.get("/", (req: Request, res: Response) => {
               <div class="flex items-center space-x-1.5 bg-yellow-500/10 border border-yellow-500/25 px-2.5 py-1 rounded-lg text-xs">
                 <i class="fa-solid fa-user-astronaut text-yellow-500 text-xs"></i>
                 <span class="text-gray-400 font-semibold hidden sm:inline">Seeker:</span>
-                <span class="text-yellow-400 font-bold truncate max-w-[80px] sm:max-w-[140px]" title="\${displayName}">\${displayName}</span>
+                <span id="signed-in-name" class="text-yellow-400 font-bold truncate max-w-[80px] sm:max-w-[140px]"></span>
               </div>
               <button onclick="handleLogout()" class="bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-red-300 px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer whitespace-nowrap flex items-center space-x-1 shadow-sm">
                 <i class="fa-solid fa-right-from-bracket text-[11px]"></i>
@@ -1107,6 +1153,9 @@ app.get("/", (req: Request, res: Response) => {
               </button>
             </div>
           \`;
+          const nameElement = document.getElementById("signed-in-name");
+          nameElement.textContent = displayName;
+          nameElement.title = displayName;
         }
         const streakElem = document.getElementById("streak-count");
         if (streakElem) streakElem.innerText = user.streak || 0;
@@ -1177,6 +1226,7 @@ app.get("/", (req: Request, res: Response) => {
 
     // Modal Control & Auth Helpers
     let authMode = "login";
+    let pendingAuthChallenge = null;
 
     function togglePasswordVisibility(inputId, iconId) {
       const inp = document.getElementById(inputId);
@@ -1250,10 +1300,13 @@ app.get("/", (req: Request, res: Response) => {
 
     function toggleAuthMode(mode) {
       authMode = mode;
+      pendingAuthChallenge = null;
       const errDiv = document.getElementById("auth-error");
       const succDiv = document.getElementById("auth-success");
       if (errDiv) errDiv.classList.add("hidden");
       if (succDiv) succDiv.classList.add("hidden");
+      document.getElementById("auth-form").classList.remove("hidden");
+      document.getElementById("auth-otp-form").classList.add("hidden");
 
       const title = document.getElementById("auth-modal-title");
       const subtitle = document.getElementById("auth-modal-subtitle");
@@ -1261,6 +1314,9 @@ app.get("/", (req: Request, res: Response) => {
       const headerIcon = document.getElementById("auth-header-icon");
       
       const fullnameField = document.getElementById("fullname-field");
+      const emailField = document.getElementById("email-field");
+      const mobileField = document.getElementById("mobile-field");
+      const passwordField = document.getElementById("password-field");
       const confirmPassField = document.getElementById("confirm-password-field");
       const loginExtrasRow = document.getElementById("login-extras-row");
       const forgotBtnContainer = document.getElementById("forgot-password-btn-container");
@@ -1288,42 +1344,59 @@ app.get("/", (req: Request, res: Response) => {
         if (title) title.classList.add("hidden");
         if (subtitle) subtitle.classList.add("hidden");
         if (fullnameField) fullnameField.classList.add("hidden");
+        if (emailField) emailField.classList.add("hidden");
+        if (mobileField) mobileField.classList.add("hidden");
+        document.getElementById("auth-email").required = false;
+        document.getElementById("auth-mobile").required = false;
+        if (passwordField) passwordField.classList.remove("hidden");
         if (confirmPassField) confirmPassField.classList.add("hidden");
         if (loginExtrasRow) loginExtrasRow.classList.remove("hidden");
         if (quickDemoSection) quickDemoSection.classList.toggle("hidden", !quickDemoAllowed);
         if (forgotBtnContainer) forgotBtnContainer.classList.remove("hidden");
         if (backToLoginContainer) backToLoginContainer.classList.add("hidden");
         if (passwordLabel) passwordLabel.innerText = "Password";
+        document.getElementById("username-label").innerText = "Username";
         if (submitText) submitText.innerText = "Sign In";
         if (passwordStrengthContainer) passwordStrengthContainer.classList.add("hidden");
       } else if (mode === "register") {
         if (headerIcon) headerIcon.className = "fa-solid fa-user-plus text-2xl";
         if (heading) heading.classList.remove("hidden");
         if (title) { title.innerText = "Join the Sanctuary"; title.classList.remove("hidden"); }
-        if (subtitle) { subtitle.innerText = "Create your account to save reviews & daily streaks"; subtitle.classList.remove("hidden"); }
+        if (subtitle) { subtitle.innerText = "Verify your email and mobile to save your progress"; subtitle.classList.remove("hidden"); }
         if (fullnameField) fullnameField.classList.remove("hidden");
+        if (emailField) emailField.classList.remove("hidden");
+        if (mobileField) mobileField.classList.remove("hidden");
+        document.getElementById("auth-email").required = true;
+        document.getElementById("auth-mobile").required = true;
+        if (passwordField) passwordField.classList.remove("hidden");
         if (confirmPassField) confirmPassField.classList.remove("hidden");
         if (loginExtrasRow) loginExtrasRow.classList.add("hidden");
         if (quickDemoSection) quickDemoSection.classList.add("hidden");
         if (forgotBtnContainer) forgotBtnContainer.classList.add("hidden");
         if (backToLoginContainer) backToLoginContainer.classList.add("hidden");
         if (passwordLabel) passwordLabel.innerText = "Password";
-        if (submitText) submitText.innerText = "Create Account";
+        document.getElementById("username-label").innerText = "Username";
+        if (submitText) submitText.innerText = "Send Verification Codes";
         const passVal = document.getElementById("auth-password") ? document.getElementById("auth-password").value : "";
         if (passVal) checkPasswordStrength(passVal);
       } else if (mode === "forgot") {
         if (headerIcon) headerIcon.className = "fa-solid fa-key-skeleton text-2xl";
         if (heading) heading.classList.remove("hidden");
         if (title) { title.innerText = "Reset Password"; title.classList.remove("hidden"); }
-        if (subtitle) { subtitle.innerText = "Enter your username and set a new account password"; subtitle.classList.remove("hidden"); }
+        if (subtitle) { subtitle.innerText = "We'll send codes to your verified email and mobile"; subtitle.classList.remove("hidden"); }
         if (fullnameField) fullnameField.classList.add("hidden");
-        if (confirmPassField) confirmPassField.classList.remove("hidden");
+        if (emailField) emailField.classList.add("hidden");
+        if (mobileField) mobileField.classList.add("hidden");
+        document.getElementById("auth-email").required = false;
+        document.getElementById("auth-mobile").required = false;
+        if (passwordField) passwordField.classList.add("hidden");
+        if (confirmPassField) confirmPassField.classList.add("hidden");
         if (loginExtrasRow) loginExtrasRow.classList.add("hidden");
         if (quickDemoSection) quickDemoSection.classList.add("hidden");
         if (forgotBtnContainer) forgotBtnContainer.classList.add("hidden");
         if (backToLoginContainer) backToLoginContainer.classList.remove("hidden");
-        if (passwordLabel) passwordLabel.innerText = "New Password";
-        if (submitText) submitText.innerText = "Reset & Update Password";
+        document.getElementById("username-label").innerText = "Username or email";
+        if (submitText) submitText.innerText = "Send Reset Codes";
         if (passwordStrengthContainer) passwordStrengthContainer.classList.add("hidden");
       }
     }
@@ -1437,6 +1510,8 @@ app.get("/", (req: Request, res: Response) => {
       } else if (authMode === "register") {
         const fullNameInput = document.getElementById("auth-fullname");
         const fullName = fullNameInput ? fullNameInput.value.trim() : "";
+        const email = document.getElementById("auth-email").value.trim();
+        const mobile = document.getElementById("auth-mobile").value.trim();
         const passwordInput = document.getElementById("auth-password");
         const password = passwordInput ? passwordInput.value : "";
         const confirmInput = document.getElementById("auth-confirm-password");
@@ -1450,21 +1525,18 @@ app.get("/", (req: Request, res: Response) => {
 
         const submitBtn = document.getElementById("auth-submit-btn");
         const submitText = document.getElementById("auth-submit-text");
-        if (submitText) submitText.innerText = "Creating Account...";
+        if (submitText) submitText.innerText = "Sending codes...";
         if (submitBtn) submitBtn.disabled = true;
 
         try {
           const res = await fetch("/api/auth/register", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password, fullName: fullName || username })
+            body: JSON.stringify({ username, password, fullName, email, mobile })
           });
           const data = await res.json();
-          if (res.ok) {
-            localStorage.setItem("token", data.token);
-            token = data.token;
-            closeAuthModal();
-            updateAuthUI(data.user);
+          if (res.ok && data.challengeToken) {
+            openAuthOtpStep(data.challengeToken, "signup");
           } else {
             if (errorMsg) errorMsg.innerText = data.error || "Registration failed.";
             if (errorDiv) errorDiv.classList.remove("hidden");
@@ -1473,44 +1545,23 @@ app.get("/", (req: Request, res: Response) => {
           if (errorMsg) errorMsg.innerText = "Connection failed.";
           if (errorDiv) errorDiv.classList.remove("hidden");
         } finally {
-          if (submitText) submitText.innerText = "Create Account";
+          if (submitText) submitText.innerText = "Send Verification Codes";
           if (submitBtn) submitBtn.disabled = false;
         }
       } else if (authMode === "forgot") {
-        const passwordInput = document.getElementById("auth-password");
-        const newPassword = passwordInput ? passwordInput.value : "";
-        const confirmInput = document.getElementById("auth-confirm-password");
-        const confirmPassword = confirmInput ? confirmInput.value : "";
-
-        if (!newPassword || newPassword.length < 6) {
-          if (errorMsg) errorMsg.innerText = "New password must be at least 6 characters long.";
-          if (errorDiv) errorDiv.classList.remove("hidden");
-          return;
-        }
-
-        if (newPassword !== confirmPassword) {
-          if (errorMsg) errorMsg.innerText = "Passwords do not match.";
-          if (errorDiv) errorDiv.classList.remove("hidden");
-          return;
-        }
-
+        const submitBtn = document.getElementById("auth-submit-btn");
+        const submitText = document.getElementById("auth-submit-text");
+        if (submitText) submitText.innerText = "Sending codes...";
+        if (submitBtn) submitBtn.disabled = true;
         try {
           const res = await fetch("/api/auth/forgot-password", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, newPassword, confirmPassword })
+            body: JSON.stringify({ identifier: username })
           });
           const data = await res.json();
-          if (res.ok) {
-            if (successMsg) successMsg.innerText = data.message || "Password updated successfully!";
-            if (successDiv) successDiv.classList.remove("hidden");
-            setTimeout(() => {
-              toggleAuthMode("login");
-              if (usernameInput) usernameInput.value = username;
-              if (passwordInput) passwordInput.value = "";
-              if (confirmInput) confirmInput.value = "";
-              if (successDiv) successDiv.classList.add("hidden");
-            }, 1800);
+          if (res.ok && data.challengeToken) {
+            openAuthOtpStep(data.challengeToken, "reset");
           } else {
             if (errorMsg) errorMsg.innerText = data.error || "Password reset failed.";
             if (errorDiv) errorDiv.classList.remove("hidden");
@@ -1518,7 +1569,102 @@ app.get("/", (req: Request, res: Response) => {
         } catch (err) {
           if (errorMsg) errorMsg.innerText = "Connection failed.";
           if (errorDiv) errorDiv.classList.remove("hidden");
+        } finally {
+          if (submitText) submitText.innerText = "Send Reset Codes";
+          if (submitBtn) submitBtn.disabled = false;
         }
+      }
+    }
+
+    function openAuthOtpStep(challengeToken, purpose) {
+      pendingAuthChallenge = { challengeToken, purpose };
+      document.getElementById("auth-form").classList.add("hidden");
+      document.getElementById("auth-otp-form").classList.remove("hidden");
+      document.getElementById("auth-reset-password-fields").classList.toggle("hidden", purpose !== "reset");
+      document.getElementById("auth-email-code").value = "";
+      document.getElementById("auth-mobile-code").value = "";
+      document.getElementById("auth-email-code").disabled = false;
+      document.getElementById("auth-mobile-code").disabled = false;
+      document.getElementById("auth-email-code").required = true;
+      document.getElementById("auth-mobile-code").required = true;
+      document.getElementById("auth-otp-intro").innerText = purpose === "reset"
+        ? "If your account has verified contacts, enter the codes sent to your email and mobile, then set a new password."
+        : "Enter both codes sent to your email and mobile to create your account.";
+      document.getElementById("auth-email-code").focus();
+    }
+
+    async function completeAuthVerification(event) {
+      event.preventDefault();
+      if (!pendingAuthChallenge) return;
+      const errorDiv = document.getElementById("auth-error");
+      const successDiv = document.getElementById("auth-success");
+      errorDiv.classList.add("hidden");
+      successDiv.classList.add("hidden");
+      const emailInput = document.getElementById("auth-email-code");
+      const mobileInput = document.getElementById("auth-mobile-code");
+      const payload = {
+        challengeToken: pendingAuthChallenge.challengeToken,
+        emailCode: emailInput.value.trim(),
+        mobileCode: mobileInput.value.trim()
+      };
+      if (pendingAuthChallenge.purpose === "reset") {
+        payload.newPassword = document.getElementById("auth-reset-password").value;
+        payload.confirmPassword = document.getElementById("auth-reset-confirm").value;
+      }
+      const submit = document.getElementById("auth-otp-submit");
+      submit.disabled = true;
+      try {
+        const url = pendingAuthChallenge.purpose === "reset" ? "/api/auth/forgot-password/verify" : "/api/auth/register/verify";
+        const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const data = await response.json();
+        if (!response.ok) {
+          document.getElementById("auth-error-msg").innerText = data.error || "The codes could not be verified.";
+          errorDiv.classList.remove("hidden");
+          if (data.emailVerified) { emailInput.disabled = true; emailInput.required = false; }
+          if (data.mobileVerified) { mobileInput.disabled = true; mobileInput.required = false; }
+          return;
+        }
+        if (pendingAuthChallenge.purpose === "signup") {
+          localStorage.setItem("token", data.token);
+          token = data.token;
+          closeAuthModal();
+          updateAuthUI(data.user);
+        } else {
+          toggleAuthMode("login");
+          document.getElementById("auth-success-msg").innerText = data.message || "Password updated. Sign in now.";
+          successDiv.classList.remove("hidden");
+        }
+        pendingAuthChallenge = null;
+      } catch (error) {
+        document.getElementById("auth-error-msg").innerText = "Connection failed. Please try again.";
+        errorDiv.classList.remove("hidden");
+      } finally {
+        submit.disabled = false;
+      }
+    }
+
+    async function resendAuthCode(channel) {
+      if (!pendingAuthChallenge) return;
+      const errorDiv = document.getElementById("auth-error");
+      const successDiv = document.getElementById("auth-success");
+      errorDiv.classList.add("hidden");
+      successDiv.classList.add("hidden");
+      try {
+        const response = await fetch("/api/auth/otp/resend", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ challengeToken: pendingAuthChallenge.challengeToken, purpose: pendingAuthChallenge.purpose, channel })
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          document.getElementById("auth-error-msg").innerText = data.error || "Could not resend the code.";
+          errorDiv.classList.remove("hidden");
+        } else {
+          document.getElementById("auth-success-msg").innerText = data.message || "New code sent.";
+          successDiv.classList.remove("hidden");
+        }
+      } catch (error) {
+        document.getElementById("auth-error-msg").innerText = "Connection failed. Please try again.";
+        errorDiv.classList.remove("hidden");
       }
     }
 
