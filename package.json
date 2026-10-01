@@ -10,7 +10,8 @@
     "lint": "tsc --noEmit",
     "test:full-gita": "node --test tests/full-gita.test.mjs",
     "test:avatars": "node --test tests/epic-avatars.test.mjs",
-    "test:onboarding": "node --test tests/auth-onboarding.test.mjs"
+    "test:onboarding": "node --test tests/auth-onboarding.test.mjs",
+    "test:otp-providers": "node --test tests/otp-providers.test.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

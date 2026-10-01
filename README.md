@@ -22,9 +22,10 @@ The Express app is detected from `src/app.ts`. Static browser assets are in `pub
 
 - `JWT_SECRET`: a strong, private signing secret.
 - `MONGODB_URI`: a hosted MongoDB connection string with read/write access and an allowed network path from Vercel.
-- `TWILIO_VERIFY_SERVICE_SID`: a Verify service configured for SMS and email.
+- `TWILIO_VERIFY_SERVICE_SID`: a Verify service configured for SMS.
 - `TWILIO_API_KEY` and `TWILIO_API_SECRET`: a Twilio API key pair. Alternatively, set `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN`.
+- `RESEND_KEY` (or `RESEND_API_KEY`) and `RESEND_FROM`: a Resend sending key and an address on a verified sender domain for email codes.
 
-The Verify service needs [Twilio Verify email integration with SendGrid](https://www.twilio.com/docs/verify/email) before email OTP delivery will work. See the [Twilio Verify API](https://www.twilio.com/docs/verify/api), [MongoDB Atlas connection guide](https://www.mongodb.com/docs/atlas/driver-connection/), and [Vercel environment variable guide](https://vercel.com/docs/environment-variables). Keep all credentials out of Git.
+Email codes use [Resend's email API](https://resend.com/docs/api-reference/emails/send-email); mobile codes use the [Twilio Verify API](https://www.twilio.com/docs/verify/api). See the [MongoDB Atlas connection guide](https://www.mongodb.com/docs/atlas/driver-connection/) and [Vercel environment variable guide](https://vercel.com/docs/environment-variables). Keep all credentials out of Git.
 
 Character portraits, art direction prompts, and textual references are documented in `docs/EPIC_AVATARS.md` and `docs/CHARACTER_ART_PROMPTS.json`.
