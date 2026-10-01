@@ -13,7 +13,7 @@ async function post(path, body) {
   return { status: response.status, body: await response.json() };
 }
 
-test("registration verifies both contacts and password recovery requires both codes", { skip: !base || !code }, async () => {
+test("registration and password recovery require an email code", { skip: !base || !code }, async () => {
   const suffix = String(Date.now()).slice(-9);
   const username = `seeker_${suffix}`;
   const email = `${username}@example.com`;
@@ -29,15 +29,14 @@ test("registration verifies both contacts and password recovery requires both co
   assert.equal((await post("/api/auth/login", { username, password })).status, 401);
   assert.equal((await post("/api/auth/register", register)).status, 429);
   assert.equal((await post("/api/auth/otp/resend", { challengeToken: started.body.challengeToken, purpose: "signup", channel: "email" })).status, 429);
+  assert.equal((await post("/api/auth/otp/resend", { challengeToken: started.body.challengeToken, purpose: "signup", channel: "mobile" })).status, 400);
 
-  const firstCheck = await post("/api/auth/register/verify", { challengeToken: started.body.challengeToken, emailCode: code, mobileCode: "999999" });
+  const firstCheck = await post("/api/auth/register/verify", { challengeToken: started.body.challengeToken, emailCode: "999999" });
   assert.equal(firstCheck.status, 400);
-  assert.equal(firstCheck.body.emailVerified, true);
-  assert.equal(firstCheck.body.mobileVerified, false);
-  const completed = await post("/api/auth/register/verify", { challengeToken: started.body.challengeToken, mobileCode: code });
+  const completed = await post("/api/auth/register/verify", { challengeToken: started.body.challengeToken, emailCode: code });
   assert.equal(completed.status, 201, JSON.stringify(completed.body));
   assert.equal(completed.body.user.emailVerified, true);
-  assert.equal(completed.body.user.mobileVerified, true);
+  assert.equal(completed.body.user.mobileVerified, false);
   assert.ok(completed.body.token);
   assert.equal((await post("/api/auth/register", register)).status, 409);
 
@@ -46,8 +45,8 @@ test("registration verifies both contacts and password recovery requires both co
   assert.equal(reset.status, 202, JSON.stringify(reset.body));
   assert.ok(reset.body.challengeToken);
   assert.equal((await post("/api/auth/forgot-password", { identifier: username })).status, 429);
-  assert.equal((await post("/api/auth/forgot-password/verify", { challengeToken: reset.body.challengeToken, emailCode: code, mobileCode: "999999", newPassword, confirmPassword: newPassword })).status, 400);
-  const resetDone = await post("/api/auth/forgot-password/verify", { challengeToken: reset.body.challengeToken, mobileCode: code, newPassword, confirmPassword: newPassword });
+  assert.equal((await post("/api/auth/forgot-password/verify", { challengeToken: reset.body.challengeToken, emailCode: "999999", newPassword, confirmPassword: newPassword })).status, 400);
+  const resetDone = await post("/api/auth/forgot-password/verify", { challengeToken: reset.body.challengeToken, emailCode: code, newPassword, confirmPassword: newPassword });
   assert.equal(resetDone.status, 200, JSON.stringify(resetDone.body));
   assert.equal((await post("/api/auth/login", { username, password })).status, 401);
   assert.equal((await post("/api/auth/login", { username: mobile, password: newPassword })).status, 200);

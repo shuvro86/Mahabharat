@@ -120,11 +120,11 @@ app.get("/", (req: Request, res: Response) => {
     .auth-panel {
       position: relative;
       width: 100%;
-      max-width: 420px;
-      padding: 28px;
-      background: linear-gradient(145deg, rgba(11, 15, 28, .91), rgba(11, 15, 28, .72));
-      border: 1px solid rgba(245, 185, 79, .42);
-      border-radius: 4px 24px 4px 24px;
+      max-width: 440px;
+      padding: 36px;
+      background: linear-gradient(145deg, rgba(14, 19, 30, .96), rgba(6, 10, 18, .88));
+      border: 1px solid rgba(245, 185, 79, .24);
+      border-radius: 2px;
       box-shadow: 0 24px 80px rgba(0, 0, 0, .46), 0 0 40px rgba(219, 153, 31, .1), inset 0 1px rgba(255, 236, 183, .14);
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
@@ -141,11 +141,29 @@ app.get("/", (req: Request, res: Response) => {
     .auth-panel::after { right: -1px; bottom: -1px; border-right: 2px solid #f5c66c; border-bottom: 2px solid #f5c66c; }
     .auth-panel input[type='text'],
     .auth-panel input[type='password'],
+    .auth-panel input[type='email'],
+    .auth-panel input[type='tel'],
     .auth-panel #auth-submit-btn,
     .auth-panel #tab-btn-login,
     .auth-panel #tab-btn-register {
-      border-radius: 10px 3px 10px 3px;
+      border-radius: 3px;
     }
+    .auth-eyebrow { display: flex; align-items: center; gap: 10px; color: #d8ac60; font-size: 10px; font-weight: 700; letter-spacing: .24em; text-transform: uppercase; }
+    .auth-eyebrow::before { content: ''; width: 24px; height: 1px; background: #d8ac60; }
+    #auth-heading { text-align: left; padding: 4px 0 8px; }
+    #auth-modal-title { color: #f5f1e9; font-size: clamp(26px, 5vw, 32px); line-height: 1.2; letter-spacing: -.025em; text-transform: none; }
+    #auth-modal-subtitle { color: #a0a9b8; font-size: 12px; line-height: 1.7; }
+    .auth-tabs { display: flex; gap: 20px; border-bottom: 1px solid #2b303b; }
+    .auth-tabs button { flex: 1; padding: 12px 0; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #969fad; font-size: 12px; font-weight: 700; cursor: pointer; transition: color .2s, border-color .2s; }
+    .auth-tabs button[aria-selected='true'] { border-bottom-color: #f0bd63; color: #f0bd63; }
+    .auth-tabs button:hover { color: #fff0d4; }
+    .auth-panel input:not([type='checkbox']) { min-height: 48px; background: #0b101b; border-color: #303747; color: #f1f5f9; }
+    .auth-panel input::placeholder { color: #707c90; }
+    .auth-panel input:not([type='checkbox']):focus { border-color: #e6b35d; box-shadow: 0 0 0 3px rgba(230, 179, 93, .12); outline: none; }
+    .auth-panel button:focus-visible { outline: 2px solid #f0bd63; outline-offset: 4px; }
+    .auth-panel #auth-submit-btn, .auth-panel #auth-otp-submit { min-height: 48px; border-radius: 3px; background: linear-gradient(110deg, #f2cf8c, #dfa543); box-shadow: 0 6px 24px rgba(223, 165, 67, .14); letter-spacing: .16em; }
+    .auth-panel button:disabled { opacity: .55; cursor: wait; }
+    @media (prefers-reduced-motion: reduce) { #auth-screen-view *, #auth-screen-view *::before, #auth-screen-view *::after { animation: none !important; transition: none !important; } }
     .auth-panel input:-webkit-autofill,
     .auth-panel input:-webkit-autofill:hover,
     .auth-panel input:-webkit-autofill:focus {
@@ -871,18 +889,15 @@ app.get("/", (req: Request, res: Response) => {
     <main class="flex-1 flex items-center justify-center md:justify-start max-w-7xl mx-auto px-4 md:px-8 lg:px-12 py-8 relative z-10 w-full">
       <div class="auth-panel space-y-5">
         
-        <div id="auth-heading" class="hidden text-center space-y-2">
-          <h2 id="auth-modal-title" class="hidden epic-title text-2xl md:text-3xl font-black text-yellow-500 tracking-wider"></h2>
-          <p id="auth-modal-subtitle" class="hidden text-xs text-gray-400 font-medium"></p>
+        <div class="auth-eyebrow">Your daily practice</div>
+        <div id="auth-heading" class="space-y-2">
+          <h2 id="auth-modal-title" class="epic-title font-black">Welcome back.</h2>
+          <p id="auth-modal-subtitle">Return to the epic. Continue your journey.</p>
         </div>
 
-        <div class="flex bg-[#121520] p-1.5 rounded-2xl border border-gray-800/80 gap-1 text-xs font-bold shadow-inner">
-          <button id="tab-btn-login" onclick="toggleAuthMode('login')" class="flex-1 py-2.5 rounded-xl transition-all duration-200 bg-yellow-500 text-gray-950 font-black shadow-md cursor-pointer">
-            Sign In
-          </button>
-          <button id="tab-btn-register" onclick="toggleAuthMode('register')" class="flex-1 py-2.5 rounded-xl transition-all duration-200 text-gray-400 hover:text-yellow-400 hover:bg-gray-800/50 cursor-pointer">
-            Sign Up
-          </button>
+        <div class="auth-tabs" role="tablist" aria-label="Account access">
+          <button id="tab-btn-login" role="tab" aria-selected="true" aria-controls="auth-form" onclick="toggleAuthMode('login')">Sign In</button>
+          <button id="tab-btn-register" role="tab" aria-selected="false" aria-controls="auth-form" onclick="toggleAuthMode('register')">Create account</button>
         </div>
 
         <div id="auth-error" class="hidden bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-4 py-3 rounded-xl flex items-center space-x-2">
@@ -910,12 +925,12 @@ app.get("/", (req: Request, res: Response) => {
           </div>
 
           <div id="mobile-field" class="hidden space-y-1.5">
-            <label for="auth-mobile" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">Mobile number with country code</label>
+            <label for="auth-mobile" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">MOBILE NO</label>
             <input type="tel" id="auth-mobile" autocomplete="tel" placeholder="+8801712345678" class="w-full bg-[#121622] border border-gray-800 text-sm text-gray-200 px-3.5 py-3 rounded-xl focus:outline-none focus:border-yellow-500">
           </div>
 
           <div id="username-field" class="space-y-1.5">
-            <label id="username-label" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">Username</label>
+            <label for="auth-username" id="username-label" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">Username</label>
             <div class="relative">
               <i class="fa-solid fa-user absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
               <input type="text" id="auth-username" required placeholder="Enter seeker username" class="w-full bg-[#121622] border border-gray-800 text-sm text-gray-200 pl-9 pr-3.5 py-3 rounded-xl focus:outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500/40 transition">
@@ -923,7 +938,7 @@ app.get("/", (req: Request, res: Response) => {
           </div>
 
           <div id="password-field" class="space-y-1.5">
-            <label id="password-label" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">Password</label>
+            <label for="auth-password" id="password-label" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">Password</label>
             <div class="relative">
               <i class="fa-solid fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
               <input type="password" id="auth-password" oninput="checkPasswordStrength(this.value)" placeholder="••••••••" class="w-full bg-[#121622] border border-gray-800 text-sm text-gray-200 pl-9 pr-10 py-3 rounded-xl focus:outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500/40 transition">
@@ -954,39 +969,6 @@ app.get("/", (req: Request, res: Response) => {
             </div>
           </div>
 
-          <div id="quick-demo-accounts" class="bg-[#121622]/90 border border-yellow-500/20 rounded-2xl p-3.5 space-y-2.5">
-            <div class="flex items-center justify-between text-[11px] font-bold text-gray-400">
-              <span class="flex items-center gap-1.5 text-yellow-400">
-                <i class="fa-solid fa-bolt-lightning text-xs"></i>
-                <span>1-Click Instant Demo Login</span>
-              </span>
-              <span class="text-[10px] text-gray-500 font-normal">Click to sign in</span>
-            </div>
-            <div class="grid grid-cols-2 gap-2">
-              <button type="button" onclick="quickDemoLogin('student', 'student123')" class="bg-gradient-to-r from-yellow-500/10 to-amber-500/20 hover:from-yellow-500/25 hover:to-amber-500/35 border border-yellow-500/40 hover:border-yellow-400 text-yellow-300 p-2.5 rounded-xl text-left transition flex flex-col justify-between group cursor-pointer shadow-sm">
-                <div class="flex items-center justify-between w-full">
-                  <span class="text-xs font-black flex items-center gap-1.5 text-yellow-400 group-hover:text-yellow-300">
-                    <i class="fa-solid fa-graduation-cap text-xs"></i>
-                    <span>Student</span>
-                  </span>
-                  <i class="fa-solid fa-arrow-right text-[10px] text-yellow-500/60 group-hover:translate-x-0.5 transition"></i>
-                </div>
-                <span class="text-[10px] text-gray-400 font-mono mt-1">student / student123</span>
-              </button>
-
-              <button type="button" onclick="quickDemoLogin('admin', 'admin123')" class="bg-gradient-to-r from-amber-600/10 to-yellow-600/20 hover:from-amber-600/25 hover:to-yellow-600/35 border border-amber-500/40 hover:border-amber-400 text-amber-300 p-2.5 rounded-xl text-left transition flex flex-col justify-between group cursor-pointer shadow-sm">
-                <div class="flex items-center justify-between w-full">
-                  <span class="text-xs font-black flex items-center gap-1.5 text-amber-400 group-hover:text-amber-300">
-                    <i class="fa-solid fa-crown text-xs"></i>
-                    <span>Admin (Guru)</span>
-                  </span>
-                  <i class="fa-solid fa-arrow-right text-[10px] text-amber-500/60 group-hover:translate-x-0.5 transition"></i>
-                </div>
-                <span class="text-[10px] text-gray-400 font-mono mt-1">admin / admin123</span>
-              </button>
-            </div>
-          </div>
-
           <div id="login-extras-row" class="flex items-center justify-between text-xs pt-1">
             <label class="flex items-center space-x-2 text-gray-400 cursor-pointer select-none">
               <input type="checkbox" id="auth-remember" class="accent-yellow-500 rounded bg-[#121622] border-gray-800">
@@ -1008,19 +990,12 @@ app.get("/", (req: Request, res: Response) => {
         </form>
 
         <form id="auth-otp-form" onsubmit="completeAuthVerification(event)" class="hidden space-y-4">
-          <p id="auth-otp-intro" class="text-xs leading-relaxed text-gray-300">Enter the codes sent to your email and mobile number.</p>
+          <p id="auth-otp-intro" class="text-xs leading-relaxed text-gray-300">Enter the code sent to your email.</p>
           <div class="space-y-1.5">
             <label for="auth-email-code" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">Email code</label>
             <div class="flex gap-2">
-              <input id="auth-email-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" pattern="[0-9]{4,10}" required placeholder="Code from email" class="min-w-0 flex-1 bg-[#121622] border border-gray-800 text-sm text-gray-200 px-3.5 py-3 rounded-xl focus:outline-none focus:border-yellow-500">
-              <button type="button" onclick="resendAuthCode('email')" class="text-xs text-yellow-400 hover:underline">Resend</button>
-            </div>
-          </div>
-          <div class="space-y-1.5">
-            <label for="auth-mobile-code" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">Mobile code</label>
-            <div class="flex gap-2">
-              <input id="auth-mobile-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" pattern="[0-9]{4,10}" required placeholder="Code from SMS" class="min-w-0 flex-1 bg-[#121622] border border-gray-800 text-sm text-gray-200 px-3.5 py-3 rounded-xl focus:outline-none focus:border-yellow-500">
-              <button type="button" onclick="resendAuthCode('mobile')" class="text-xs text-yellow-400 hover:underline">Resend</button>
+              <input id="auth-email-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required placeholder="6-digit email code" class="min-w-0 flex-1 bg-[#121622] border border-gray-800 text-sm text-gray-200 px-3.5 py-3 rounded-xl focus:outline-none focus:border-yellow-500">
+              <button type="button" onclick="resendAuthCode()" class="text-xs text-yellow-400 hover:underline">Resend</button>
             </div>
           </div>
           <div id="auth-reset-password-fields" class="hidden space-y-3">
@@ -1052,7 +1027,6 @@ app.get("/", (req: Request, res: Response) => {
   <script src="/assets/epic-avatars.js"></script>
   <script src="/assets/hall-of-frame.js"></script>
   <script>
-    const quickDemoAllowed = ${JSON.stringify(process.env.NODE_ENV !== "production")};
     let currentTab = "dashboard";
     let currentUser = null;
     let token = localStorage.getItem("token") || "";
@@ -1320,7 +1294,6 @@ app.get("/", (req: Request, res: Response) => {
       const loginExtrasRow = document.getElementById("login-extras-row");
       const forgotBtnContainer = document.getElementById("forgot-password-btn-container");
       const backToLoginContainer = document.getElementById("back-to-login-container");
-      const quickDemoSection = document.getElementById("quick-demo-accounts");
       
       const submitText = document.getElementById("auth-submit-text");
       const passwordLabel = document.getElementById("password-label");
@@ -1329,19 +1302,15 @@ app.get("/", (req: Request, res: Response) => {
       ["login", "register", "forgot"].forEach(t => {
         const btn = document.getElementById("tab-btn-" + t);
         if (btn) {
-          if (t === mode) {
-            btn.className = "flex-1 py-2.5 rounded-xl transition-all duration-200 bg-yellow-500 text-gray-950 font-black shadow-md cursor-pointer";
-          } else {
-            btn.className = "flex-1 py-2.5 rounded-xl transition-all duration-200 text-gray-400 hover:text-yellow-400 hover:bg-gray-800/50 cursor-pointer";
-          }
+          btn.setAttribute("aria-selected", String(t === mode));
         }
       });
 
       if (mode === "login") {
         if (headerIcon) headerIcon.className = "fa-solid fa-shield-halved text-2xl";
-        if (heading) heading.classList.add("hidden");
-        if (title) title.classList.add("hidden");
-        if (subtitle) subtitle.classList.add("hidden");
+        if (heading) heading.classList.remove("hidden");
+        if (title) { title.innerText = "Welcome back."; title.classList.remove("hidden"); }
+        if (subtitle) { subtitle.innerText = "Return to the epic. Continue your journey."; subtitle.classList.remove("hidden"); }
         if (fullnameField) fullnameField.classList.add("hidden");
         if (emailField) emailField.classList.add("hidden");
         if (mobileField) mobileField.classList.add("hidden");
@@ -1350,7 +1319,6 @@ app.get("/", (req: Request, res: Response) => {
         if (passwordField) passwordField.classList.remove("hidden");
         if (confirmPassField) confirmPassField.classList.add("hidden");
         if (loginExtrasRow) loginExtrasRow.classList.remove("hidden");
-        if (quickDemoSection) quickDemoSection.classList.toggle("hidden", !quickDemoAllowed);
         if (forgotBtnContainer) forgotBtnContainer.classList.remove("hidden");
         if (backToLoginContainer) backToLoginContainer.classList.add("hidden");
         if (passwordLabel) passwordLabel.innerText = "Password";
@@ -1361,7 +1329,7 @@ app.get("/", (req: Request, res: Response) => {
         if (headerIcon) headerIcon.className = "fa-solid fa-user-plus text-2xl";
         if (heading) heading.classList.remove("hidden");
         if (title) { title.innerText = "Join the Sanctuary"; title.classList.remove("hidden"); }
-        if (subtitle) { subtitle.innerText = "Verify your email and mobile to save your progress"; subtitle.classList.remove("hidden"); }
+        if (subtitle) { subtitle.innerText = "Verify your email to save your progress"; subtitle.classList.remove("hidden"); }
         if (fullnameField) fullnameField.classList.remove("hidden");
         if (emailField) emailField.classList.remove("hidden");
         if (mobileField) mobileField.classList.remove("hidden");
@@ -1370,19 +1338,18 @@ app.get("/", (req: Request, res: Response) => {
         if (passwordField) passwordField.classList.remove("hidden");
         if (confirmPassField) confirmPassField.classList.remove("hidden");
         if (loginExtrasRow) loginExtrasRow.classList.add("hidden");
-        if (quickDemoSection) quickDemoSection.classList.add("hidden");
         if (forgotBtnContainer) forgotBtnContainer.classList.add("hidden");
         if (backToLoginContainer) backToLoginContainer.classList.add("hidden");
         if (passwordLabel) passwordLabel.innerText = "Password";
         document.getElementById("username-label").innerText = "Username";
-        if (submitText) submitText.innerText = "Send Verification Codes";
+        if (submitText) submitText.innerText = "Send Email Code";
         const passVal = document.getElementById("auth-password") ? document.getElementById("auth-password").value : "";
         if (passVal) checkPasswordStrength(passVal);
       } else if (mode === "forgot") {
         if (headerIcon) headerIcon.className = "fa-solid fa-key-skeleton text-2xl";
         if (heading) heading.classList.remove("hidden");
         if (title) { title.innerText = "Reset Password"; title.classList.remove("hidden"); }
-        if (subtitle) { subtitle.innerText = "We'll send codes to your verified email and mobile"; subtitle.classList.remove("hidden"); }
+        if (subtitle) { subtitle.innerText = "We'll send a code to your verified email"; subtitle.classList.remove("hidden"); }
         if (fullnameField) fullnameField.classList.add("hidden");
         if (emailField) emailField.classList.add("hidden");
         if (mobileField) mobileField.classList.add("hidden");
@@ -1391,56 +1358,11 @@ app.get("/", (req: Request, res: Response) => {
         if (passwordField) passwordField.classList.add("hidden");
         if (confirmPassField) confirmPassField.classList.add("hidden");
         if (loginExtrasRow) loginExtrasRow.classList.add("hidden");
-        if (quickDemoSection) quickDemoSection.classList.add("hidden");
         if (forgotBtnContainer) forgotBtnContainer.classList.add("hidden");
         if (backToLoginContainer) backToLoginContainer.classList.remove("hidden");
         document.getElementById("username-label").innerText = "Username or email";
-        if (submitText) submitText.innerText = "Send Reset Codes";
+        if (submitText) submitText.innerText = "Send Reset Code";
         if (passwordStrengthContainer) passwordStrengthContainer.classList.add("hidden");
-      }
-    }
-
-    function quickFillLogin(u, p) {
-      const userInp = document.getElementById("auth-username");
-      const passInp = document.getElementById("auth-password");
-      if (userInp) userInp.value = u;
-      if (passInp) passInp.value = p;
-    }
-
-    async function quickDemoLogin(u, p) {
-      quickFillLogin(u, p);
-      toggleAuthMode("login");
-      const submitBtn = document.getElementById("auth-submit-btn");
-      const submitText = document.getElementById("auth-submit-text");
-      if (submitText) submitText.innerText = "Signing In...";
-      if (submitBtn) submitBtn.disabled = true;
-
-      try {
-        const res = await fetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: u, password: p })
-        });
-        const data = await res.json();
-        if (res.ok) {
-          localStorage.setItem("token", data.token);
-          token = data.token;
-          closeAuthModal();
-          updateAuthUI(data.user);
-        } else {
-          const errorDiv = document.getElementById("auth-error");
-          const errorMsg = document.getElementById("auth-error-msg");
-          if (errorMsg) errorMsg.innerText = data.error || "Authentication failed.";
-          if (errorDiv) errorDiv.classList.remove("hidden");
-        }
-      } catch (err) {
-        const errorDiv = document.getElementById("auth-error");
-        const errorMsg = document.getElementById("auth-error-msg");
-        if (errorMsg) errorMsg.innerText = "Connection failed. Please check server status.";
-        if (errorDiv) errorDiv.classList.remove("hidden");
-      } finally {
-        if (submitText) submitText.innerText = "Sign In";
-        if (submitBtn) submitBtn.disabled = false;
       }
     }
 
@@ -1544,7 +1466,7 @@ app.get("/", (req: Request, res: Response) => {
           if (errorMsg) errorMsg.innerText = "Connection failed.";
           if (errorDiv) errorDiv.classList.remove("hidden");
         } finally {
-          if (submitText) submitText.innerText = "Send Verification Codes";
+          if (submitText) submitText.innerText = "Send Email Code";
           if (submitBtn) submitBtn.disabled = false;
         }
       } else if (authMode === "forgot") {
@@ -1569,7 +1491,7 @@ app.get("/", (req: Request, res: Response) => {
           if (errorMsg) errorMsg.innerText = "Connection failed.";
           if (errorDiv) errorDiv.classList.remove("hidden");
         } finally {
-          if (submitText) submitText.innerText = "Send Reset Codes";
+          if (submitText) submitText.innerText = "Send Reset Code";
           if (submitBtn) submitBtn.disabled = false;
         }
       }
@@ -1581,14 +1503,11 @@ app.get("/", (req: Request, res: Response) => {
       document.getElementById("auth-otp-form").classList.remove("hidden");
       document.getElementById("auth-reset-password-fields").classList.toggle("hidden", purpose !== "reset");
       document.getElementById("auth-email-code").value = "";
-      document.getElementById("auth-mobile-code").value = "";
       document.getElementById("auth-email-code").disabled = false;
-      document.getElementById("auth-mobile-code").disabled = false;
       document.getElementById("auth-email-code").required = true;
-      document.getElementById("auth-mobile-code").required = true;
       document.getElementById("auth-otp-intro").innerText = purpose === "reset"
-        ? "If your account has verified contacts, enter the codes sent to your email and mobile, then set a new password."
-        : "Enter both codes sent to your email and mobile to create your account.";
+        ? "If your account has a verified email, enter its code and set a new password."
+        : "Enter the code sent to your email to create your account.";
       document.getElementById("auth-email-code").focus();
     }
 
@@ -1600,11 +1519,9 @@ app.get("/", (req: Request, res: Response) => {
       errorDiv.classList.add("hidden");
       successDiv.classList.add("hidden");
       const emailInput = document.getElementById("auth-email-code");
-      const mobileInput = document.getElementById("auth-mobile-code");
       const payload = {
         challengeToken: pendingAuthChallenge.challengeToken,
-        emailCode: emailInput.value.trim(),
-        mobileCode: mobileInput.value.trim()
+        emailCode: emailInput.value.trim()
       };
       if (pendingAuthChallenge.purpose === "reset") {
         payload.newPassword = document.getElementById("auth-reset-password").value;
@@ -1617,10 +1534,8 @@ app.get("/", (req: Request, res: Response) => {
         const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const data = await response.json();
         if (!response.ok) {
-          document.getElementById("auth-error-msg").innerText = data.error || "The codes could not be verified.";
+          document.getElementById("auth-error-msg").innerText = data.error || "The email code could not be verified.";
           errorDiv.classList.remove("hidden");
-          if (data.emailVerified) { emailInput.disabled = true; emailInput.required = false; }
-          if (data.mobileVerified) { mobileInput.disabled = true; mobileInput.required = false; }
           return;
         }
         if (pendingAuthChallenge.purpose === "signup") {
@@ -1642,7 +1557,7 @@ app.get("/", (req: Request, res: Response) => {
       }
     }
 
-    async function resendAuthCode(channel) {
+    async function resendAuthCode() {
       if (!pendingAuthChallenge) return;
       const errorDiv = document.getElementById("auth-error");
       const successDiv = document.getElementById("auth-success");
@@ -1651,7 +1566,7 @@ app.get("/", (req: Request, res: Response) => {
       try {
         const response = await fetch("/api/auth/otp/resend", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ challengeToken: pendingAuthChallenge.challengeToken, purpose: pendingAuthChallenge.purpose, channel })
+          body: JSON.stringify({ challengeToken: pendingAuthChallenge.challengeToken, purpose: pendingAuthChallenge.purpose, channel: "email" })
         });
         const data = await response.json();
         if (!response.ok) {
@@ -2837,8 +2752,6 @@ app.get("/", (req: Request, res: Response) => {
     window.openAuthModal = openAuthModal;
     window.closeAuthModal = closeAuthModal;
     window.toggleAuthMode = toggleAuthMode;
-    window.quickFillLogin = quickFillLogin;
-    window.quickDemoLogin = quickDemoLogin;
     window.switchToRegisterWith = switchToRegisterWith;
     window.handleAuthSubmit = handleAuthSubmit;
     window.startGuestSession = startGuestSession;

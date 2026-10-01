@@ -11,13 +11,9 @@ export interface IVerificationChallenge extends Document {
   email: string;
   mobile: string;
   emailVerified: boolean;
-  mobileVerified: boolean;
   emailCodeHash?: string;
-  mobileCodeHash?: string;
   emailSentAt?: Date;
-  mobileSentAt?: Date;
   emailSendCount: number;
-  mobileSendCount: number;
   failedChecks: number;
   expiresAt: Date;
   createdAt: Date;
@@ -35,13 +31,9 @@ const VerificationChallengeSchema = new Schema<IVerificationChallenge>({
   email: { type: String, required: true },
   mobile: { type: String, required: true },
   emailVerified: { type: Boolean, default: false },
-  mobileVerified: { type: Boolean, default: false },
   emailCodeHash: String,
-  mobileCodeHash: String,
   emailSentAt: Date,
-  mobileSentAt: Date,
   emailSendCount: { type: Number, default: 0 },
-  mobileSendCount: { type: Number, default: 0 },
   failedChecks: { type: Number, default: 0 },
   expiresAt: { type: Date, required: true },
 }, { timestamps: true });

@@ -4,7 +4,7 @@ import bcryptjs from "bcryptjs";
 import { User } from "../models/User";
 import { IVerificationChallenge, VerificationChallenge } from "../models/VerificationChallenge";
 import { validateRegisterInput } from "../utils/validators";
-import { checkOtp, otpReady, OtpChannel, sendOtp } from "../services/otp";
+import { checkOtp, otpReady, sendOtp } from "../services/otp";
 import { signToken } from "./authController";
 
 const CHALLENGE_MS = 15 * 60 * 1000;
@@ -52,42 +52,23 @@ async function lookupChallenge(rawToken: unknown, purpose: "signup" | "reset"): 
   return challenge;
 }
 
-async function deliver(challenge: IVerificationChallenge, channel: OtpChannel): Promise<void> {
-  const to = channel === "email" ? challenge.email : challenge.mobile;
-  const codeHash = await sendOtp(challenge.tokenHash, channel, to);
-  const now = new Date();
-  if (channel === "email") {
-    challenge.emailCodeHash = codeHash;
-    challenge.emailSentAt = now;
-    challenge.emailSendCount += 1;
-  } else {
-    challenge.mobileCodeHash = codeHash;
-    challenge.mobileSentAt = now;
-    challenge.mobileSendCount += 1;
-  }
+async function deliver(challenge: IVerificationChallenge): Promise<void> {
+  challenge.emailCodeHash = await sendOtp(challenge.tokenHash, challenge.email);
+  challenge.emailSentAt = new Date();
+  challenge.emailSendCount += 1;
   await challenge.save();
 }
 
-async function verifyCodes(challenge: IVerificationChallenge, emailCode: unknown, mobileCode: unknown): Promise<string | null> {
+async function verifyCode(challenge: IVerificationChallenge, emailCode: unknown): Promise<string | null> {
   if (challenge.failedChecks >= MAX_FAILED_CHECKS) return "Too many incorrect codes. Start again.";
   if (!challenge.emailVerified) {
-    if (typeof emailCode !== "string" || !(await checkOtp(challenge.tokenHash, "email", challenge.email, emailCode, challenge.emailCodeHash))) {
+    if (!checkOtp(challenge.tokenHash, emailCode, challenge.emailCodeHash)) {
       challenge.failedChecks += 1;
       await challenge.save();
       return "The email code is incorrect or expired.";
     }
     challenge.emailVerified = true;
     challenge.emailCodeHash = undefined;
-    await challenge.save();
-  }
-  if (!challenge.mobileVerified) {
-    if (typeof mobileCode !== "string" || !(await checkOtp(challenge.tokenHash, "mobile", challenge.mobile, mobileCode, challenge.mobileCodeHash))) {
-      challenge.failedChecks += 1;
-      await challenge.save();
-      return "The mobile code is incorrect or expired.";
-    }
-    challenge.mobileVerified = true;
-    challenge.mobileCodeHash = undefined;
     await challenge.save();
   }
   return null;
@@ -120,18 +101,17 @@ export async function startRegistration(req: Request, res: Response): Promise<vo
     const challenge = await VerificationChallenge.create({
       tokenHash: hashToken(token), purpose: "signup", username, usernameKey,
       fullName: req.body.fullName.trim(), passwordHash: await bcryptjs.hash(req.body.password, 12),
-      email, mobile, emailVerified: false, mobileVerified: false,
-      emailSendCount: 0, mobileSendCount: 0, failedChecks: 0,
+      email, mobile, emailVerified: false,
+      emailSendCount: 0, failedChecks: 0,
       expiresAt: new Date(Date.now() + CHALLENGE_MS),
     });
     try {
-      await deliver(challenge, "email");
-      await deliver(challenge, "mobile");
+      await deliver(challenge);
     } catch (error) {
       await VerificationChallenge.deleteMany({ tokenHash: challenge.tokenHash });
       throw error;
     }
-    res.status(202).json({ message: "Verification codes sent to your email and mobile.", challengeToken: token, expiresInSeconds: CHALLENGE_MS / 1000 });
+    res.status(202).json({ message: "Verification code sent to your email.", challengeToken: token, expiresInSeconds: CHALLENGE_MS / 1000 });
   } catch (error) {
     console.error("Registration start failed:", error);
     res.status(503).json({ error: "Could not start verification. Please try again shortly." });
@@ -142,17 +122,17 @@ export async function completeRegistration(req: Request, res: Response): Promise
   try {
     const challenge = await lookupChallenge(req.body?.challengeToken, "signup");
     if (!challenge) { res.status(400).json({ error: "Signup expired. Please start again." }); return; }
-    const error = await verifyCodes(challenge, req.body.emailCode, req.body.mobileCode);
-    if (error) { res.status(challenge.failedChecks >= MAX_FAILED_CHECKS ? 429 : 400).json({ error, emailVerified: challenge.emailVerified, mobileVerified: challenge.mobileVerified }); return; }
+    const error = await verifyCode(challenge, req.body.emailCode);
+    if (error) { res.status(challenge.failedChecks >= MAX_FAILED_CHECKS ? 429 : 400).json({ error }); return; }
     const user = await User.create({
       username: challenge.username, usernameKey: challenge.usernameKey,
       fullName: challenge.fullName, password: challenge.passwordHash,
       email: challenge.email, mobile: challenge.mobile,
-      emailVerifiedAt: new Date(), mobileVerifiedAt: new Date(),
+      emailVerifiedAt: new Date(),
       role: "student", streak: 1,
     });
     await VerificationChallenge.deleteMany({ tokenHash: challenge.tokenHash });
-    issueSession(res, user, 201, "Account created and both contacts verified.");
+    issueSession(res, user, 201, "Account created and email verified.");
   } catch (error: any) {
     if (error?.code === 11000) { res.status(409).json({ error: "Username, email, or mobile is already registered." }); return; }
     console.error("Registration verification failed:", error);
@@ -163,18 +143,14 @@ export async function completeRegistration(req: Request, res: Response): Promise
 export async function resendCode(req: Request, res: Response): Promise<void> {
   try {
     const purpose = req.body?.purpose === "reset" ? "reset" : "signup";
-    const channel: OtpChannel = req.body?.channel;
-    if (channel !== "email" && channel !== "mobile") { res.status(400).json({ error: "Choose email or mobile." }); return; }
+    if (req.body?.channel && req.body.channel !== "email") { res.status(400).json({ error: "Only email verification is available." }); return; }
     const challenge = await lookupChallenge(req.body?.challengeToken, purpose);
     if (!challenge) { res.status(400).json({ error: "Verification expired. Please start again." }); return; }
     if (purpose === "reset" && !challenge.userId) { res.status(200).json({ message: "If this account is eligible, a code has been sent." }); return; }
-    const count = channel === "email" ? challenge.emailSendCount : challenge.mobileSendCount;
-    const sentAt = channel === "email" ? challenge.emailSentAt : challenge.mobileSentAt;
-    const verified = channel === "email" ? challenge.emailVerified : challenge.mobileVerified;
-    if (verified) { res.status(200).json({ message: "This contact is already verified." }); return; }
-    if (count >= MAX_SENDS) { res.status(429).json({ error: "Code send limit reached. Start again after this attempt expires." }); return; }
-    if (sentAt && Date.now() - sentAt.getTime() < RESEND_WAIT_MS) { res.status(429).json({ error: "Please wait one minute before requesting another code." }); return; }
-    await deliver(challenge, channel);
+    if (challenge.emailVerified) { res.status(200).json({ message: "Email is already verified." }); return; }
+    if (challenge.emailSendCount >= MAX_SENDS) { res.status(429).json({ error: "Code send limit reached. Start again after this attempt expires." }); return; }
+    if (challenge.emailSentAt && Date.now() - challenge.emailSentAt.getTime() < RESEND_WAIT_MS) { res.status(429).json({ error: "Please wait one minute before requesting another code." }); return; }
+    await deliver(challenge);
     res.status(200).json({ message: "A new code has been sent." });
   } catch (error) {
     console.error("Code resend failed:", error);
@@ -190,7 +166,7 @@ export async function startPasswordReset(req: Request, res: Response): Promise<v
     const key = identifier.toLowerCase();
     const escapedIdentifier = identifier.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const user = await User.findOne({ $or: [{ usernameKey: key }, { email: key }, { username: new RegExp(`^${escapedIdentifier}$`, "i") }] });
-    const eligible = user && user.role !== "guest" && user.email && user.mobile && user.emailVerifiedAt && user.mobileVerifiedAt;
+    const eligible = user && user.role !== "guest" && user.email && user.emailVerifiedAt;
     if (eligible) {
       const active = await VerificationChallenge.findOne({ purpose: "reset", userId: user._id, expiresAt: { $gt: new Date() } });
       if (active) { res.status(429).json({ error: "A reset is already in progress. Please finish it or wait 15 minutes." }); return; }
@@ -201,15 +177,15 @@ export async function startPasswordReset(req: Request, res: Response): Promise<v
       usernameKey: user?.usernameKey || key, userId: eligible ? user!._id : undefined,
       email: eligible ? user!.email : "unavailable@example.invalid",
       mobile: eligible ? user!.mobile : "+10000000000",
-      emailVerified: false, mobileVerified: false,
-      emailSendCount: 0, mobileSendCount: 0, failedChecks: 0,
+      emailVerified: false,
+      emailSendCount: 0, failedChecks: 0,
       expiresAt: new Date(Date.now() + CHALLENGE_MS),
     });
     if (eligible) {
-      try { await deliver(challenge, "email"); await deliver(challenge, "mobile"); }
+      try { await deliver(challenge); }
       catch (error) { await VerificationChallenge.deleteMany({ tokenHash: challenge.tokenHash }); throw error; }
     }
-    res.status(202).json({ message: "If this account has verified contacts, codes have been sent.", challengeToken: token, expiresInSeconds: CHALLENGE_MS / 1000 });
+    res.status(202).json({ message: "If this account has a verified email, a code has been sent.", challengeToken: token, expiresInSeconds: CHALLENGE_MS / 1000 });
   } catch (error) {
     console.error("Password reset start failed:", error);
     res.status(503).json({ error: "Could not start password reset. Please try again." });
@@ -218,14 +194,14 @@ export async function startPasswordReset(req: Request, res: Response): Promise<v
 
 export async function completePasswordReset(req: Request, res: Response): Promise<void> {
   try {
-    const { challengeToken, emailCode, mobileCode, newPassword, confirmPassword } = req.body || {};
+    const { challengeToken, emailCode, newPassword, confirmPassword } = req.body || {};
     if (typeof newPassword !== "string" || newPassword.length < 10 || !/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword) || newPassword !== confirmPassword) {
       res.status(400).json({ error: "New passwords must match and contain at least 10 characters, a letter, and a number." }); return;
     }
     const challenge = await lookupChallenge(challengeToken, "reset");
     if (!challenge || !challenge.userId) { res.status(400).json({ error: "Invalid or expired reset request." }); return; }
-    const error = await verifyCodes(challenge, emailCode, mobileCode);
-    if (error) { res.status(challenge.failedChecks >= MAX_FAILED_CHECKS ? 429 : 400).json({ error, emailVerified: challenge.emailVerified, mobileVerified: challenge.mobileVerified }); return; }
+    const error = await verifyCode(challenge, emailCode);
+    if (error) { res.status(challenge.failedChecks >= MAX_FAILED_CHECKS ? 429 : 400).json({ error }); return; }
     const user = await User.findById(challenge.userId);
     if (!user) { res.status(400).json({ error: "Invalid or expired reset request." }); return; }
     user.password = await bcryptjs.hash(newPassword, 12);
