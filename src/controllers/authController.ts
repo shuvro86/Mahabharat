@@ -1,3 +1,4 @@
+import { escapeRegExp } from "../utils/escapeRegExp";
 import { Request, Response } from "express";
 import bcryptjs from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -5,14 +6,13 @@ import { User } from "../models/User";
 import { validateLoginInput } from "../utils/validators";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 
-const jwtSecret = () => process.env.JWT_SECRET || process.env.JWT_ACCESS_SECRET ||
-  (process.env.NODE_ENV === "production" ? "" : "mahabharat-secret-key-108");
+import { jwtSecret } from "../utils/authSecret";
 
 // Helper to sign JWT
-export const signToken = (userId: string, role: string) => {
+export const signToken = (userId: string, role: string, sessionVersion = 0) => {
   const secret = jwtSecret();
   if (!secret) throw new Error("JWT_SECRET must be configured in production.");
-  return jwt.sign({ id: userId, role }, secret, {
+  return jwt.sign({ id: userId, role, sessionVersion }, secret, {
     expiresIn: (process.env.JWT_ACCESS_EXPIRY || "1d") as any,
   });
 };
@@ -35,8 +35,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         { email: cleanUsername.toLowerCase() },
         { mobile: cleanUsername },
         { username: cleanUsername },
-        { username: new RegExp(`^${cleanUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") },
-        { fullName: new RegExp(`^${cleanUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") }
+        { username: new RegExp(`^${escapeRegExp(cleanUsername)}$`, "i") }
       ]
     });
 
@@ -47,7 +46,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     const isMatch = await bcryptjs.compare(password, user.password);
     if (!isMatch) {
-      res.status(401).json({ error: "Invalid password for this account. Please try again or use password reset." });
+      res.status(401).json({ error: "Invalid username or password." });
       return;
     }
 
@@ -71,7 +70,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     user.lastActive = today;
     await user.save();
 
-    const token = signToken(user._id.toString(), user.role);
+    const token = signToken(user._id.toString(), user.role, user.sessionVersion || 0);
 
     res.cookie("token", token, {
       httpOnly: true,
@@ -96,7 +95,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       },
     });
   } catch (err: any) {
-    res.status(500).json({ error: "Login failed: " + err.message });
+    res.status(500).json({ error: "Login failed." });
   }
 };
 
@@ -130,7 +129,7 @@ export const loginGuest = async (req: Request, res: Response): Promise<void> => 
       },
     });
   } catch (err: any) {
-    res.status(500).json({ error: "Guest login failed: " + err.message });
+    res.status(500).json({ error: "Guest login failed." });
   }
 };
 
@@ -166,6 +165,6 @@ export const getMe = async (req: AuthenticatedRequest, res: Response): Promise<v
       },
     });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to retrieve user: " + err.message });
+    res.status(500).json({ error: "Failed to retrieve user." });
   }
 };

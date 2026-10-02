@@ -39,7 +39,7 @@ export const generateQuiz = async (req: AuthenticatedRequest, res: Response): Pr
 
     res.status(200).json({ questions: quizQuestions });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to generate quiz: " + err.message });
+    res.status(500).json({ error: "Failed to generate quiz." });
   }
 };
 
@@ -51,7 +51,7 @@ export const submitQuiz = async (req: AuthenticatedRequest, res: Response): Prom
     }
 
     const { answers } = req.body; // array of { wordId, answer }
-    if (!answers || !Array.isArray(answers) || answers.length === 0) {
+    if (!answers || !Array.isArray(answers) || answers.length === 0 || answers.length > 50 || answers.some((a: any) => !a || typeof a.wordId !== "string" || !/^[a-f0-9]{24}$/i.test(a.wordId) || typeof a.answer !== "string" || a.answer.length > 1000)) {
       res.status(400).json({ error: "Answers are required and must be an array." });
       return;
     }
@@ -92,7 +92,7 @@ export const submitQuiz = async (req: AuthenticatedRequest, res: Response): Prom
       details: questionDetails,
     });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to submit quiz: " + err.message });
+    res.status(500).json({ error: "Failed to submit quiz." });
   }
 };
 
@@ -109,6 +109,6 @@ export const getQuizHistory = async (req: AuthenticatedRequest, res: Response): 
       
     res.status(200).json(history);
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to fetch quiz history: " + err.message });
+    res.status(500).json({ error: "Failed to fetch quiz history." });
   }
 };

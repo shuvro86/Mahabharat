@@ -14,7 +14,7 @@ export const getSearchHistory = async (req: AuthenticatedRequest, res: Response)
       .limit(10);
     res.status(200).json(history);
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to fetch search history: " + err.message });
+    res.status(500).json({ error: "Failed to fetch search history." });
   }
 };
 
@@ -26,7 +26,7 @@ export const saveSearchQuery = async (req: AuthenticatedRequest, res: Response):
     }
 
     const { query } = req.body;
-    if (!query || typeof query !== "string" || !query.trim()) {
+    if (!query || typeof query !== "string" || !query.trim() || query.length > 200) {
       res.status(400).json({ error: "Search query is required." });
       return;
     }
@@ -42,7 +42,7 @@ export const saveSearchQuery = async (req: AuthenticatedRequest, res: Response):
 
     res.status(201).json({ message: "Search history saved successfully." });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to save search: " + err.message });
+    res.status(500).json({ error: "Failed to save search." });
   }
 };
 
@@ -56,6 +56,6 @@ export const clearSearchHistory = async (req: AuthenticatedRequest, res: Respons
     await SearchHistory.deleteMany({ userId: req.user.id });
     res.status(200).json({ message: "Search history cleared successfully." });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to clear search history: " + err.message });
+    res.status(500).json({ error: "Failed to clear search history." });
   }
 };

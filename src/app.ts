@@ -26,7 +26,14 @@ const PORT = Number(process.env.PORT) || 3000;
 
 // Enable CORS and json body parsing
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "32kb" }));
+app.disable("x-powered-by");
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  next();
+});
 
 // Set up rate limiting
 app.use(rateLimiter);
@@ -1461,6 +1468,8 @@ app.get("/", (req: Request, res: Response) => {
           } else {
             if (errorMsg) errorMsg.innerText = data.error || "Registration failed.";
             if (errorDiv) errorDiv.classList.remove("hidden");
+            const conflictField = Array.isArray(data.fields) && data.fields.find(field => ["username", "email", "mobile"].includes(field));
+            if (conflictField) document.getElementById("auth-" + conflictField).focus();
           }
         } catch (err) {
           if (errorMsg) errorMsg.innerText = "Connection failed.";
@@ -1641,11 +1650,15 @@ app.get("/", (req: Request, res: Response) => {
             div.innerHTML = "<span class='italic'>No recent search history</span>";
             return;
           }
-          div.innerHTML = list.map(h => \`
-            <span onclick="applyRecentSearch('\${h.query}')" class="bg-gray-800 hover:bg-yellow-600/20 hover:text-yellow-500 cursor-pointer px-2 py-1 rounded transition border border-gray-700/50">
-              \${h.query}
-            </span>
-          \`).join("");
+          div.replaceChildren();
+          list.forEach(h => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "bg-gray-800 hover:bg-yellow-600/20 hover:text-yellow-500 cursor-pointer px-2 py-1 rounded transition border border-gray-700/50";
+            button.textContent = h.query;
+            button.addEventListener("click", () => applyRecentSearch(h.query));
+            div.appendChild(button);
+          });
         }
       } catch (err) {
         console.error(err);

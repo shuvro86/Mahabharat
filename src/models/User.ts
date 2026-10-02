@@ -11,6 +11,7 @@ export interface IUser extends Document {
   mobileVerifiedAt?: Date;
   role: "admin" | "student" | "guest";
   streak: number;
+  sessionVersion: number;
   lastActive?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -42,6 +43,7 @@ const UserSchema = new Schema<IUser>(
       enum: ["admin", "student", "guest"],
       default: "student",
     },
+    sessionVersion: { type: Number, default: 0 },
     streak: {
       type: Number,
       default: 0,

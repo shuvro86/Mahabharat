@@ -13,7 +13,7 @@ export const getProgress = async (req: AuthenticatedRequest, res: Response): Pro
     const progressList = await Progress.find({ userId: req.user.id }).populate("wordId");
     res.status(200).json(progressList);
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to fetch progress: " + err.message });
+    res.status(500).json({ error: "Failed to fetch progress." });
   }
 };
 
@@ -40,7 +40,7 @@ export const getReviewQueue = async (req: AuthenticatedRequest, res: Response): 
       unreviewedWords
     });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to fetch review queue: " + err.message });
+    res.status(500).json({ error: "Failed to fetch review queue." });
   }
 };
 
@@ -52,7 +52,7 @@ export const submitReview = async (req: AuthenticatedRequest, res: Response): Pr
     }
 
     const { wordId, rating } = req.body; // rating from 0 to 5
-    if (rating === undefined || rating < 0 || rating > 5) {
+    if (typeof wordId !== "string" || !/^[a-f0-9]{24}$/i.test(wordId) || !Number.isInteger(rating) || rating < 0 || rating > 5) {
       res.status(400).json({ error: "Invalid rating. Must be between 0 and 5." });
       return;
     }
@@ -114,7 +114,7 @@ export const submitReview = async (req: AuthenticatedRequest, res: Response): Pr
       }
     });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to submit review: " + err.message });
+    res.status(500).json({ error: "Failed to submit review." });
   }
 };
 
@@ -150,6 +150,6 @@ export const getReviewStats = async (req: AuthenticatedRequest, res: Response): 
       unreviewedCount: Math.max(0, totalWords - reviewedCount)
     });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to fetch stats: " + err.message });
+    res.status(500).json({ error: "Failed to fetch stats." });
   }
 };

@@ -1,6 +1,7 @@
 import { Document, Schema, model } from "mongoose";
 
 export interface IVerificationChallenge extends Document {
+  __v: number;
   tokenHash: string;
   purpose: "signup" | "reset";
   username: string;
@@ -36,7 +37,7 @@ const VerificationChallengeSchema = new Schema<IVerificationChallenge>({
   emailSendCount: { type: Number, default: 0 },
   failedChecks: { type: Number, default: 0 },
   expiresAt: { type: Date, required: true },
-}, { timestamps: true });
+}, { timestamps: true, optimisticConcurrency: true });
 
 VerificationChallengeSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 

@@ -7,6 +7,14 @@ const MAX_REQUESTS = 100;    // max 100 requests per minute per IP
 export const rateLimiter = (req: Request, res: Response, next: NextFunction): void => {
   const ip = (req.ip || req.headers["x-forwarded-for"] || "unknown") as string;
   const now = Date.now();
+  // Bound process memory even when callers cycle through many addresses.
+  for (const [key, entry] of ipRequests) {
+    if (now - entry.lastReset > WINDOW_MS) ipRequests.delete(key);
+  }
+  if (!ipRequests.has(ip) && ipRequests.size >= 10000) {
+    res.status(429).json({ error: "Too many requests. Please try again later." });
+    return;
+  }
   
   let record = ipRequests.get(ip);
   if (!record) {
