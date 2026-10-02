@@ -1,15 +1,13 @@
 import { Request, Response } from "express";
 import { Word } from "../models/Word";
 
-function escapeRegExp(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+import { escapeRegExp } from "../utils/escapeRegExp";
 
 export const getAllWords = async (req: Request, res: Response): Promise<void> => {
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 15;
-    const search = req.query.search as string;
+    const page = Math.max(1, Math.min(100000, parseInt(req.query.page as string) || 1));
+    const limit = Math.max(1, Math.min(100, parseInt(req.query.limit as string) || 15));
+    const search = typeof req.query.search === "string" ? req.query.search.slice(0, 200) : "";
     const difficulty = req.query.difficulty as string;
 
     const query: any = {};
@@ -43,7 +41,7 @@ export const getAllWords = async (req: Request, res: Response): Promise<void> =>
       },
     });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to get words: " + err.message });
+    res.status(500).json({ error: "Failed to get words." });
   }
 };
 
@@ -56,7 +54,7 @@ export const getWordById = async (req: Request, res: Response): Promise<void> =>
     }
     res.status(200).json(word);
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to get word: " + err.message });
+    res.status(500).json({ error: "Failed to get word." });
   }
 };
 
@@ -66,7 +64,7 @@ export const createWord = async (req: Request, res: Response): Promise<void> => 
     const newWord = await Word.create(req.body);
     res.status(201).json(newWord);
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to create word: " + err.message });
+    res.status(500).json({ error: "Failed to create word." });
   }
 };
 
@@ -79,7 +77,7 @@ export const updateWord = async (req: Request, res: Response): Promise<void> => 
     }
     res.status(200).json(updatedWord);
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to update word: " + err.message });
+    res.status(500).json({ error: "Failed to update word." });
   }
 };
 
@@ -92,6 +90,6 @@ export const deleteWord = async (req: Request, res: Response): Promise<void> => 
     }
     res.status(200).json({ message: "Word deleted successfully" });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to delete word: " + err.message });
+    res.status(500).json({ error: "Failed to delete word." });
   }
 };

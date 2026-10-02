@@ -4,7 +4,7 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
   console.error("Global Error Handler caught an error:", err);
   
   const status = err.status || err.statusCode || 500;
-  const message = err.message || "An unexpected internal server error occurred.";
+  const message = status >= 500 ? "An unexpected internal server error occurred." : "Invalid request.";
   
   res.status(status).json({
     error: message,

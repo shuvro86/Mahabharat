@@ -74,4 +74,6 @@ const ShlokaSchema = new Schema<IShloka>(
   }
 );
 
+ShlokaSchema.index({ chapter: 1, verse: 1 }, { unique: true });
+
 export const Shloka = model<IShloka>("Shloka", ShlokaSchema);

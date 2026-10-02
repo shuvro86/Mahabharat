@@ -26,13 +26,28 @@ const PORT = Number(process.env.PORT) || 3000;
 
 // Enable CORS and json body parsing
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "32kb" }));
+app.disable("x-powered-by");
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  next();
+});
 
 // Set up rate limiting
 app.use(rateLimiter);
 
-// Connect to Database
-connectDB();
+// Complete database startup before serving API requests.
+app.use("/api", async (_req: Request, res: Response, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error("Database unavailable:", error);
+    res.status(503).json({ error: "The database is temporarily unavailable." });
+  }
+});
 
 // API Routes
 app.use("/api/auth", authRoutes);
@@ -112,11 +127,11 @@ app.get("/", (req: Request, res: Response) => {
     .auth-panel {
       position: relative;
       width: 100%;
-      max-width: 420px;
-      padding: 28px;
-      background: linear-gradient(145deg, rgba(11, 15, 28, .91), rgba(11, 15, 28, .72));
-      border: 1px solid rgba(245, 185, 79, .42);
-      border-radius: 4px 24px 4px 24px;
+      max-width: 440px;
+      padding: 36px;
+      background: linear-gradient(145deg, rgba(14, 19, 30, .96), rgba(6, 10, 18, .88));
+      border: 1px solid rgba(245, 185, 79, .24);
+      border-radius: 2px;
       box-shadow: 0 24px 80px rgba(0, 0, 0, .46), 0 0 40px rgba(219, 153, 31, .1), inset 0 1px rgba(255, 236, 183, .14);
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
@@ -133,11 +148,29 @@ app.get("/", (req: Request, res: Response) => {
     .auth-panel::after { right: -1px; bottom: -1px; border-right: 2px solid #f5c66c; border-bottom: 2px solid #f5c66c; }
     .auth-panel input[type='text'],
     .auth-panel input[type='password'],
+    .auth-panel input[type='email'],
+    .auth-panel input[type='tel'],
     .auth-panel #auth-submit-btn,
     .auth-panel #tab-btn-login,
     .auth-panel #tab-btn-register {
-      border-radius: 10px 3px 10px 3px;
+      border-radius: 3px;
     }
+    .auth-eyebrow { display: flex; align-items: center; gap: 10px; color: #d8ac60; font-size: 10px; font-weight: 700; letter-spacing: .24em; text-transform: uppercase; }
+    .auth-eyebrow::before { content: ''; width: 24px; height: 1px; background: #d8ac60; }
+    #auth-heading { text-align: left; padding: 4px 0 8px; }
+    #auth-modal-title { color: #f5f1e9; font-size: clamp(26px, 5vw, 32px); line-height: 1.2; letter-spacing: -.025em; text-transform: none; }
+    #auth-modal-subtitle { color: #a0a9b8; font-size: 12px; line-height: 1.7; }
+    .auth-tabs { display: flex; gap: 20px; border-bottom: 1px solid #2b303b; }
+    .auth-tabs button { flex: 1; padding: 12px 0; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #969fad; font-size: 12px; font-weight: 700; cursor: pointer; transition: color .2s, border-color .2s; }
+    .auth-tabs button[aria-selected='true'] { border-bottom-color: #f0bd63; color: #f0bd63; }
+    .auth-tabs button:hover { color: #fff0d4; }
+    .auth-panel input:not([type='checkbox']) { min-height: 48px; background: #0b101b; border-color: #303747; color: #f1f5f9; }
+    .auth-panel input::placeholder { color: #707c90; }
+    .auth-panel input:not([type='checkbox']):focus { border-color: #e6b35d; box-shadow: 0 0 0 3px rgba(230, 179, 93, .12); outline: none; }
+    .auth-panel button:focus-visible { outline: 2px solid #f0bd63; outline-offset: 4px; }
+    .auth-panel #auth-submit-btn, .auth-panel #auth-otp-submit { min-height: 48px; border-radius: 3px; background: linear-gradient(110deg, #f2cf8c, #dfa543); box-shadow: 0 6px 24px rgba(223, 165, 67, .14); letter-spacing: .16em; }
+    .auth-panel button:disabled { opacity: .55; cursor: wait; }
+    @media (prefers-reduced-motion: reduce) { #auth-screen-view *, #auth-screen-view *::before, #auth-screen-view *::after { animation: none !important; transition: none !important; } }
     .auth-panel input:-webkit-autofill,
     .auth-panel input:-webkit-autofill:hover,
     .auth-panel input:-webkit-autofill:focus {
@@ -863,18 +896,15 @@ app.get("/", (req: Request, res: Response) => {
     <main class="flex-1 flex items-center justify-center md:justify-start max-w-7xl mx-auto px-4 md:px-8 lg:px-12 py-8 relative z-10 w-full">
       <div class="auth-panel space-y-5">
         
-        <div id="auth-heading" class="hidden text-center space-y-2">
-          <h2 id="auth-modal-title" class="hidden epic-title text-2xl md:text-3xl font-black text-yellow-500 tracking-wider"></h2>
-          <p id="auth-modal-subtitle" class="hidden text-xs text-gray-400 font-medium"></p>
+        <div class="auth-eyebrow">Your daily practice</div>
+        <div id="auth-heading" class="space-y-2">
+          <h2 id="auth-modal-title" class="epic-title font-black">Welcome back.</h2>
+          <p id="auth-modal-subtitle">Return to the epic. Continue your journey.</p>
         </div>
 
-        <div class="flex bg-[#121520] p-1.5 rounded-2xl border border-gray-800/80 gap-1 text-xs font-bold shadow-inner">
-          <button id="tab-btn-login" onclick="toggleAuthMode('login')" class="flex-1 py-2.5 rounded-xl transition-all duration-200 bg-yellow-500 text-gray-950 font-black shadow-md cursor-pointer">
-            Sign In
-          </button>
-          <button id="tab-btn-register" onclick="toggleAuthMode('register')" class="flex-1 py-2.5 rounded-xl transition-all duration-200 text-gray-400 hover:text-yellow-400 hover:bg-gray-800/50 cursor-pointer">
-            Sign Up
-          </button>
+        <div class="auth-tabs" role="tablist" aria-label="Account access">
+          <button id="tab-btn-login" role="tab" aria-selected="true" aria-controls="auth-form" onclick="toggleAuthMode('login')">Sign In</button>
+          <button id="tab-btn-register" role="tab" aria-selected="false" aria-controls="auth-form" onclick="toggleAuthMode('register')">Create account</button>
         </div>
 
         <div id="auth-error" class="hidden bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-4 py-3 rounded-xl flex items-center space-x-2">
@@ -896,8 +926,18 @@ app.get("/", (req: Request, res: Response) => {
             </div>
           </div>
 
+          <div id="email-field" class="hidden space-y-1.5">
+            <label for="auth-email" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">Email address</label>
+            <input type="email" id="auth-email" autocomplete="email" placeholder="you@example.com" class="w-full bg-[#121622] border border-gray-800 text-sm text-gray-200 px-3.5 py-3 rounded-xl focus:outline-none focus:border-yellow-500">
+          </div>
+
+          <div id="mobile-field" class="hidden space-y-1.5">
+            <label for="auth-mobile" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">MOBILE NO</label>
+            <input type="tel" id="auth-mobile" autocomplete="tel" placeholder="+8801712345678" class="w-full bg-[#121622] border border-gray-800 text-sm text-gray-200 px-3.5 py-3 rounded-xl focus:outline-none focus:border-yellow-500">
+          </div>
+
           <div id="username-field" class="space-y-1.5">
-            <label id="username-label" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">Username</label>
+            <label for="auth-username" id="username-label" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">Username</label>
             <div class="relative">
               <i class="fa-solid fa-user absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
               <input type="text" id="auth-username" required placeholder="Enter seeker username" class="w-full bg-[#121622] border border-gray-800 text-sm text-gray-200 pl-9 pr-3.5 py-3 rounded-xl focus:outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500/40 transition">
@@ -905,7 +945,7 @@ app.get("/", (req: Request, res: Response) => {
           </div>
 
           <div id="password-field" class="space-y-1.5">
-            <label id="password-label" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">Password</label>
+            <label for="auth-password" id="password-label" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">Password</label>
             <div class="relative">
               <i class="fa-solid fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
               <input type="password" id="auth-password" oninput="checkPasswordStrength(this.value)" placeholder="••••••••" class="w-full bg-[#121622] border border-gray-800 text-sm text-gray-200 pl-9 pr-10 py-3 rounded-xl focus:outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500/40 transition">
@@ -936,39 +976,6 @@ app.get("/", (req: Request, res: Response) => {
             </div>
           </div>
 
-          <div id="quick-demo-accounts" class="bg-[#121622]/90 border border-yellow-500/20 rounded-2xl p-3.5 space-y-2.5">
-            <div class="flex items-center justify-between text-[11px] font-bold text-gray-400">
-              <span class="flex items-center gap-1.5 text-yellow-400">
-                <i class="fa-solid fa-bolt-lightning text-xs"></i>
-                <span>1-Click Instant Demo Login</span>
-              </span>
-              <span class="text-[10px] text-gray-500 font-normal">Click to sign in</span>
-            </div>
-            <div class="grid grid-cols-2 gap-2">
-              <button type="button" onclick="quickDemoLogin('student', 'student123')" class="bg-gradient-to-r from-yellow-500/10 to-amber-500/20 hover:from-yellow-500/25 hover:to-amber-500/35 border border-yellow-500/40 hover:border-yellow-400 text-yellow-300 p-2.5 rounded-xl text-left transition flex flex-col justify-between group cursor-pointer shadow-sm">
-                <div class="flex items-center justify-between w-full">
-                  <span class="text-xs font-black flex items-center gap-1.5 text-yellow-400 group-hover:text-yellow-300">
-                    <i class="fa-solid fa-graduation-cap text-xs"></i>
-                    <span>Student</span>
-                  </span>
-                  <i class="fa-solid fa-arrow-right text-[10px] text-yellow-500/60 group-hover:translate-x-0.5 transition"></i>
-                </div>
-                <span class="text-[10px] text-gray-400 font-mono mt-1">student / student123</span>
-              </button>
-
-              <button type="button" onclick="quickDemoLogin('admin', 'admin123')" class="bg-gradient-to-r from-amber-600/10 to-yellow-600/20 hover:from-amber-600/25 hover:to-yellow-600/35 border border-amber-500/40 hover:border-amber-400 text-amber-300 p-2.5 rounded-xl text-left transition flex flex-col justify-between group cursor-pointer shadow-sm">
-                <div class="flex items-center justify-between w-full">
-                  <span class="text-xs font-black flex items-center gap-1.5 text-amber-400 group-hover:text-amber-300">
-                    <i class="fa-solid fa-crown text-xs"></i>
-                    <span>Admin (Guru)</span>
-                  </span>
-                  <i class="fa-solid fa-arrow-right text-[10px] text-amber-500/60 group-hover:translate-x-0.5 transition"></i>
-                </div>
-                <span class="text-[10px] text-gray-400 font-mono mt-1">admin / admin123</span>
-              </button>
-            </div>
-          </div>
-
           <div id="login-extras-row" class="flex items-center justify-between text-xs pt-1">
             <label class="flex items-center space-x-2 text-gray-400 cursor-pointer select-none">
               <input type="checkbox" id="auth-remember" class="accent-yellow-500 rounded bg-[#121622] border-gray-800">
@@ -987,6 +994,25 @@ app.get("/", (req: Request, res: Response) => {
               <span>Forgot Password?</span>
             </button>
           </div>
+        </form>
+
+        <form id="auth-otp-form" onsubmit="completeAuthVerification(event)" class="hidden space-y-4">
+          <p id="auth-otp-intro" class="text-xs leading-relaxed text-gray-300">Enter the code sent to your email.</p>
+          <div class="space-y-1.5">
+            <label for="auth-email-code" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">Email code</label>
+            <div class="flex gap-2">
+              <input id="auth-email-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required placeholder="6-digit email code" class="min-w-0 flex-1 bg-[#121622] border border-gray-800 text-sm text-gray-200 px-3.5 py-3 rounded-xl focus:outline-none focus:border-yellow-500">
+              <button type="button" onclick="resendAuthCode()" class="text-xs text-yellow-400 hover:underline">Resend</button>
+            </div>
+          </div>
+          <div id="auth-reset-password-fields" class="hidden space-y-3">
+            <label for="auth-reset-password" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">New password</label>
+            <input id="auth-reset-password" type="password" autocomplete="new-password" minlength="10" placeholder="At least 10 characters, a letter, and a number" class="w-full bg-[#121622] border border-gray-800 text-sm text-gray-200 px-3.5 py-3 rounded-xl focus:outline-none focus:border-yellow-500">
+            <label for="auth-reset-confirm" class="text-[11px] text-gray-400 block font-bold uppercase tracking-wider">Confirm new password</label>
+            <input id="auth-reset-confirm" type="password" autocomplete="new-password" minlength="10" placeholder="Confirm new password" class="w-full bg-[#121622] border border-gray-800 text-sm text-gray-200 px-3.5 py-3 rounded-xl focus:outline-none focus:border-yellow-500">
+          </div>
+          <button type="submit" id="auth-otp-submit" class="w-full bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-950 font-black py-3.5 rounded-xl text-xs uppercase tracking-widest">Verify and continue</button>
+          <button type="button" onclick="toggleAuthMode(authMode)" class="w-full text-xs text-gray-400 hover:text-yellow-400">Edit account details</button>
         </form>
 
         <div id="back-to-login-container" class="hidden pt-2 text-center text-xs text-gray-400">
@@ -1008,7 +1034,6 @@ app.get("/", (req: Request, res: Response) => {
   <script src="/assets/epic-avatars.js"></script>
   <script src="/assets/hall-of-frame.js"></script>
   <script>
-    const quickDemoAllowed = ${JSON.stringify(process.env.NODE_ENV !== "production")};
     let currentTab = "dashboard";
     let currentUser = null;
     let token = localStorage.getItem("token") || "";
@@ -1048,9 +1073,11 @@ app.get("/", (req: Request, res: Response) => {
       try {
         const res = await fetch("/api/words");
         if (res.ok) {
-          document.getElementById("db-banner-text").innerText = "Connected to high-performance local MongoDB engine.";
+          document.getElementById("db-banner-text").innerText = "Study data service connected.";
           document.getElementById("db-banner").classList.add("bg-green-600/10", "text-green-500");
           document.getElementById("db-banner").classList.remove("bg-yellow-600/10", "text-yellow-500");
+        } else {
+          document.getElementById("db-banner-text").innerText = "Database connection offline or starting...";
         }
       } catch (err) {
         document.getElementById("db-banner-text").innerText = "Database connection offline or starting...";
@@ -1099,7 +1126,7 @@ app.get("/", (req: Request, res: Response) => {
               <div class="flex items-center space-x-1.5 bg-yellow-500/10 border border-yellow-500/25 px-2.5 py-1 rounded-lg text-xs">
                 <i class="fa-solid fa-user-astronaut text-yellow-500 text-xs"></i>
                 <span class="text-gray-400 font-semibold hidden sm:inline">Seeker:</span>
-                <span class="text-yellow-400 font-bold truncate max-w-[80px] sm:max-w-[140px]" title="\${displayName}">\${displayName}</span>
+                <span id="signed-in-name" class="text-yellow-400 font-bold truncate max-w-[80px] sm:max-w-[140px]"></span>
               </div>
               <button onclick="handleLogout()" class="bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-red-300 px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer whitespace-nowrap flex items-center space-x-1 shadow-sm">
                 <i class="fa-solid fa-right-from-bracket text-[11px]"></i>
@@ -1107,6 +1134,9 @@ app.get("/", (req: Request, res: Response) => {
               </button>
             </div>
           \`;
+          const nameElement = document.getElementById("signed-in-name");
+          nameElement.textContent = displayName;
+          nameElement.title = displayName;
         }
         const streakElem = document.getElementById("streak-count");
         if (streakElem) streakElem.innerText = user.streak || 0;
@@ -1147,7 +1177,6 @@ app.get("/", (req: Request, res: Response) => {
     function switchTab(tab) {
       if (tab !== "characters" && window.EpicAvatars) window.EpicAvatars.stopVoice();
       if (tab !== "hall-of-frame" && window.hallFrameStopStory) window.hallFrameStopStory();
-      if (tab !== "hall-of-frame" && window.hallFrameStopScene) window.hallFrameStopScene();
       currentTab = tab;
       
       document.querySelectorAll(".nav-btn").forEach(btn => {
@@ -1177,6 +1206,7 @@ app.get("/", (req: Request, res: Response) => {
 
     // Modal Control & Auth Helpers
     let authMode = "login";
+    let pendingAuthChallenge = null;
 
     function togglePasswordVisibility(inputId, iconId) {
       const inp = document.getElementById(inputId);
@@ -1250,10 +1280,13 @@ app.get("/", (req: Request, res: Response) => {
 
     function toggleAuthMode(mode) {
       authMode = mode;
+      pendingAuthChallenge = null;
       const errDiv = document.getElementById("auth-error");
       const succDiv = document.getElementById("auth-success");
       if (errDiv) errDiv.classList.add("hidden");
       if (succDiv) succDiv.classList.add("hidden");
+      document.getElementById("auth-form").classList.remove("hidden");
+      document.getElementById("auth-otp-form").classList.add("hidden");
 
       const title = document.getElementById("auth-modal-title");
       const subtitle = document.getElementById("auth-modal-subtitle");
@@ -1261,11 +1294,13 @@ app.get("/", (req: Request, res: Response) => {
       const headerIcon = document.getElementById("auth-header-icon");
       
       const fullnameField = document.getElementById("fullname-field");
+      const emailField = document.getElementById("email-field");
+      const mobileField = document.getElementById("mobile-field");
+      const passwordField = document.getElementById("password-field");
       const confirmPassField = document.getElementById("confirm-password-field");
       const loginExtrasRow = document.getElementById("login-extras-row");
       const forgotBtnContainer = document.getElementById("forgot-password-btn-container");
       const backToLoginContainer = document.getElementById("back-to-login-container");
-      const quickDemoSection = document.getElementById("quick-demo-accounts");
       
       const submitText = document.getElementById("auth-submit-text");
       const passwordLabel = document.getElementById("password-label");
@@ -1274,101 +1309,67 @@ app.get("/", (req: Request, res: Response) => {
       ["login", "register", "forgot"].forEach(t => {
         const btn = document.getElementById("tab-btn-" + t);
         if (btn) {
-          if (t === mode) {
-            btn.className = "flex-1 py-2.5 rounded-xl transition-all duration-200 bg-yellow-500 text-gray-950 font-black shadow-md cursor-pointer";
-          } else {
-            btn.className = "flex-1 py-2.5 rounded-xl transition-all duration-200 text-gray-400 hover:text-yellow-400 hover:bg-gray-800/50 cursor-pointer";
-          }
+          btn.setAttribute("aria-selected", String(t === mode));
         }
       });
 
       if (mode === "login") {
         if (headerIcon) headerIcon.className = "fa-solid fa-shield-halved text-2xl";
-        if (heading) heading.classList.add("hidden");
-        if (title) title.classList.add("hidden");
-        if (subtitle) subtitle.classList.add("hidden");
+        if (heading) heading.classList.remove("hidden");
+        if (title) { title.innerText = "Welcome back."; title.classList.remove("hidden"); }
+        if (subtitle) { subtitle.innerText = "Return to the epic. Continue your journey."; subtitle.classList.remove("hidden"); }
         if (fullnameField) fullnameField.classList.add("hidden");
+        if (emailField) emailField.classList.add("hidden");
+        if (mobileField) mobileField.classList.add("hidden");
+        document.getElementById("auth-email").required = false;
+        document.getElementById("auth-mobile").required = false;
+        if (passwordField) passwordField.classList.remove("hidden");
         if (confirmPassField) confirmPassField.classList.add("hidden");
         if (loginExtrasRow) loginExtrasRow.classList.remove("hidden");
-        if (quickDemoSection) quickDemoSection.classList.toggle("hidden", !quickDemoAllowed);
         if (forgotBtnContainer) forgotBtnContainer.classList.remove("hidden");
         if (backToLoginContainer) backToLoginContainer.classList.add("hidden");
         if (passwordLabel) passwordLabel.innerText = "Password";
+        document.getElementById("username-label").innerText = "Username";
         if (submitText) submitText.innerText = "Sign In";
         if (passwordStrengthContainer) passwordStrengthContainer.classList.add("hidden");
       } else if (mode === "register") {
         if (headerIcon) headerIcon.className = "fa-solid fa-user-plus text-2xl";
         if (heading) heading.classList.remove("hidden");
         if (title) { title.innerText = "Join the Sanctuary"; title.classList.remove("hidden"); }
-        if (subtitle) { subtitle.innerText = "Create your account to save reviews & daily streaks"; subtitle.classList.remove("hidden"); }
+        if (subtitle) { subtitle.innerText = "Verify your email to save your progress"; subtitle.classList.remove("hidden"); }
         if (fullnameField) fullnameField.classList.remove("hidden");
+        if (emailField) emailField.classList.remove("hidden");
+        if (mobileField) mobileField.classList.remove("hidden");
+        document.getElementById("auth-email").required = true;
+        document.getElementById("auth-mobile").required = true;
+        if (passwordField) passwordField.classList.remove("hidden");
         if (confirmPassField) confirmPassField.classList.remove("hidden");
         if (loginExtrasRow) loginExtrasRow.classList.add("hidden");
-        if (quickDemoSection) quickDemoSection.classList.add("hidden");
         if (forgotBtnContainer) forgotBtnContainer.classList.add("hidden");
         if (backToLoginContainer) backToLoginContainer.classList.add("hidden");
         if (passwordLabel) passwordLabel.innerText = "Password";
-        if (submitText) submitText.innerText = "Create Account";
+        document.getElementById("username-label").innerText = "Username";
+        if (submitText) submitText.innerText = "Send Email Code";
         const passVal = document.getElementById("auth-password") ? document.getElementById("auth-password").value : "";
         if (passVal) checkPasswordStrength(passVal);
       } else if (mode === "forgot") {
         if (headerIcon) headerIcon.className = "fa-solid fa-key-skeleton text-2xl";
         if (heading) heading.classList.remove("hidden");
         if (title) { title.innerText = "Reset Password"; title.classList.remove("hidden"); }
-        if (subtitle) { subtitle.innerText = "Enter your username and set a new account password"; subtitle.classList.remove("hidden"); }
+        if (subtitle) { subtitle.innerText = "We'll send a code to your verified email"; subtitle.classList.remove("hidden"); }
         if (fullnameField) fullnameField.classList.add("hidden");
-        if (confirmPassField) confirmPassField.classList.remove("hidden");
+        if (emailField) emailField.classList.add("hidden");
+        if (mobileField) mobileField.classList.add("hidden");
+        document.getElementById("auth-email").required = false;
+        document.getElementById("auth-mobile").required = false;
+        if (passwordField) passwordField.classList.add("hidden");
+        if (confirmPassField) confirmPassField.classList.add("hidden");
         if (loginExtrasRow) loginExtrasRow.classList.add("hidden");
-        if (quickDemoSection) quickDemoSection.classList.add("hidden");
         if (forgotBtnContainer) forgotBtnContainer.classList.add("hidden");
         if (backToLoginContainer) backToLoginContainer.classList.remove("hidden");
-        if (passwordLabel) passwordLabel.innerText = "New Password";
-        if (submitText) submitText.innerText = "Reset & Update Password";
+        document.getElementById("username-label").innerText = "Username or email";
+        if (submitText) submitText.innerText = "Send Reset Code";
         if (passwordStrengthContainer) passwordStrengthContainer.classList.add("hidden");
-      }
-    }
-
-    function quickFillLogin(u, p) {
-      const userInp = document.getElementById("auth-username");
-      const passInp = document.getElementById("auth-password");
-      if (userInp) userInp.value = u;
-      if (passInp) passInp.value = p;
-    }
-
-    async function quickDemoLogin(u, p) {
-      quickFillLogin(u, p);
-      toggleAuthMode("login");
-      const submitBtn = document.getElementById("auth-submit-btn");
-      const submitText = document.getElementById("auth-submit-text");
-      if (submitText) submitText.innerText = "Signing In...";
-      if (submitBtn) submitBtn.disabled = true;
-
-      try {
-        const res = await fetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: u, password: p })
-        });
-        const data = await res.json();
-        if (res.ok) {
-          localStorage.setItem("token", data.token);
-          token = data.token;
-          closeAuthModal();
-          updateAuthUI(data.user);
-        } else {
-          const errorDiv = document.getElementById("auth-error");
-          const errorMsg = document.getElementById("auth-error-msg");
-          if (errorMsg) errorMsg.innerText = data.error || "Authentication failed.";
-          if (errorDiv) errorDiv.classList.remove("hidden");
-        }
-      } catch (err) {
-        const errorDiv = document.getElementById("auth-error");
-        const errorMsg = document.getElementById("auth-error-msg");
-        if (errorMsg) errorMsg.innerText = "Connection failed. Please check server status.";
-        if (errorDiv) errorDiv.classList.remove("hidden");
-      } finally {
-        if (submitText) submitText.innerText = "Sign In";
-        if (submitBtn) submitBtn.disabled = false;
       }
     }
 
@@ -1437,6 +1438,8 @@ app.get("/", (req: Request, res: Response) => {
       } else if (authMode === "register") {
         const fullNameInput = document.getElementById("auth-fullname");
         const fullName = fullNameInput ? fullNameInput.value.trim() : "";
+        const email = document.getElementById("auth-email").value.trim();
+        const mobile = document.getElementById("auth-mobile").value.trim();
         const passwordInput = document.getElementById("auth-password");
         const password = passwordInput ? passwordInput.value : "";
         const confirmInput = document.getElementById("auth-confirm-password");
@@ -1450,67 +1453,45 @@ app.get("/", (req: Request, res: Response) => {
 
         const submitBtn = document.getElementById("auth-submit-btn");
         const submitText = document.getElementById("auth-submit-text");
-        if (submitText) submitText.innerText = "Creating Account...";
+        if (submitText) submitText.innerText = "Sending codes...";
         if (submitBtn) submitBtn.disabled = true;
 
         try {
           const res = await fetch("/api/auth/register", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password, fullName: fullName || username })
+            body: JSON.stringify({ username, password, fullName, email, mobile })
           });
           const data = await res.json();
-          if (res.ok) {
-            localStorage.setItem("token", data.token);
-            token = data.token;
-            closeAuthModal();
-            updateAuthUI(data.user);
+          if (res.ok && data.challengeToken) {
+            openAuthOtpStep(data.challengeToken, "signup");
           } else {
             if (errorMsg) errorMsg.innerText = data.error || "Registration failed.";
             if (errorDiv) errorDiv.classList.remove("hidden");
+            const conflictField = Array.isArray(data.fields) && data.fields.find(field => ["username", "email", "mobile"].includes(field));
+            if (conflictField) document.getElementById("auth-" + conflictField).focus();
           }
         } catch (err) {
           if (errorMsg) errorMsg.innerText = "Connection failed.";
           if (errorDiv) errorDiv.classList.remove("hidden");
         } finally {
-          if (submitText) submitText.innerText = "Create Account";
+          if (submitText) submitText.innerText = "Send Email Code";
           if (submitBtn) submitBtn.disabled = false;
         }
       } else if (authMode === "forgot") {
-        const passwordInput = document.getElementById("auth-password");
-        const newPassword = passwordInput ? passwordInput.value : "";
-        const confirmInput = document.getElementById("auth-confirm-password");
-        const confirmPassword = confirmInput ? confirmInput.value : "";
-
-        if (!newPassword || newPassword.length < 6) {
-          if (errorMsg) errorMsg.innerText = "New password must be at least 6 characters long.";
-          if (errorDiv) errorDiv.classList.remove("hidden");
-          return;
-        }
-
-        if (newPassword !== confirmPassword) {
-          if (errorMsg) errorMsg.innerText = "Passwords do not match.";
-          if (errorDiv) errorDiv.classList.remove("hidden");
-          return;
-        }
-
+        const submitBtn = document.getElementById("auth-submit-btn");
+        const submitText = document.getElementById("auth-submit-text");
+        if (submitText) submitText.innerText = "Sending codes...";
+        if (submitBtn) submitBtn.disabled = true;
         try {
           const res = await fetch("/api/auth/forgot-password", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, newPassword, confirmPassword })
+            body: JSON.stringify({ identifier: username })
           });
           const data = await res.json();
-          if (res.ok) {
-            if (successMsg) successMsg.innerText = data.message || "Password updated successfully!";
-            if (successDiv) successDiv.classList.remove("hidden");
-            setTimeout(() => {
-              toggleAuthMode("login");
-              if (usernameInput) usernameInput.value = username;
-              if (passwordInput) passwordInput.value = "";
-              if (confirmInput) confirmInput.value = "";
-              if (successDiv) successDiv.classList.add("hidden");
-            }, 1800);
+          if (res.ok && data.challengeToken) {
+            openAuthOtpStep(data.challengeToken, "reset");
           } else {
             if (errorMsg) errorMsg.innerText = data.error || "Password reset failed.";
             if (errorDiv) errorDiv.classList.remove("hidden");
@@ -1518,7 +1499,95 @@ app.get("/", (req: Request, res: Response) => {
         } catch (err) {
           if (errorMsg) errorMsg.innerText = "Connection failed.";
           if (errorDiv) errorDiv.classList.remove("hidden");
+        } finally {
+          if (submitText) submitText.innerText = "Send Reset Code";
+          if (submitBtn) submitBtn.disabled = false;
         }
+      }
+    }
+
+    function openAuthOtpStep(challengeToken, purpose) {
+      pendingAuthChallenge = { challengeToken, purpose };
+      document.getElementById("auth-form").classList.add("hidden");
+      document.getElementById("auth-otp-form").classList.remove("hidden");
+      document.getElementById("auth-reset-password-fields").classList.toggle("hidden", purpose !== "reset");
+      document.getElementById("auth-email-code").value = "";
+      document.getElementById("auth-email-code").disabled = false;
+      document.getElementById("auth-email-code").required = true;
+      document.getElementById("auth-otp-intro").innerText = purpose === "reset"
+        ? "If your account has a verified email, enter its code and set a new password."
+        : "Enter the code sent to your email to create your account.";
+      document.getElementById("auth-email-code").focus();
+    }
+
+    async function completeAuthVerification(event) {
+      event.preventDefault();
+      if (!pendingAuthChallenge) return;
+      const errorDiv = document.getElementById("auth-error");
+      const successDiv = document.getElementById("auth-success");
+      errorDiv.classList.add("hidden");
+      successDiv.classList.add("hidden");
+      const emailInput = document.getElementById("auth-email-code");
+      const payload = {
+        challengeToken: pendingAuthChallenge.challengeToken,
+        emailCode: emailInput.value.trim()
+      };
+      if (pendingAuthChallenge.purpose === "reset") {
+        payload.newPassword = document.getElementById("auth-reset-password").value;
+        payload.confirmPassword = document.getElementById("auth-reset-confirm").value;
+      }
+      const submit = document.getElementById("auth-otp-submit");
+      submit.disabled = true;
+      try {
+        const url = pendingAuthChallenge.purpose === "reset" ? "/api/auth/forgot-password/verify" : "/api/auth/register/verify";
+        const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const data = await response.json();
+        if (!response.ok) {
+          document.getElementById("auth-error-msg").innerText = data.error || "The email code could not be verified.";
+          errorDiv.classList.remove("hidden");
+          return;
+        }
+        if (pendingAuthChallenge.purpose === "signup") {
+          localStorage.setItem("token", data.token);
+          token = data.token;
+          closeAuthModal();
+          updateAuthUI(data.user);
+        } else {
+          toggleAuthMode("login");
+          document.getElementById("auth-success-msg").innerText = data.message || "Password updated. Sign in now.";
+          successDiv.classList.remove("hidden");
+        }
+        pendingAuthChallenge = null;
+      } catch (error) {
+        document.getElementById("auth-error-msg").innerText = "Connection failed. Please try again.";
+        errorDiv.classList.remove("hidden");
+      } finally {
+        submit.disabled = false;
+      }
+    }
+
+    async function resendAuthCode() {
+      if (!pendingAuthChallenge) return;
+      const errorDiv = document.getElementById("auth-error");
+      const successDiv = document.getElementById("auth-success");
+      errorDiv.classList.add("hidden");
+      successDiv.classList.add("hidden");
+      try {
+        const response = await fetch("/api/auth/otp/resend", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ challengeToken: pendingAuthChallenge.challengeToken, purpose: pendingAuthChallenge.purpose, channel: "email" })
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          document.getElementById("auth-error-msg").innerText = data.error || "Could not resend the code.";
+          errorDiv.classList.remove("hidden");
+        } else {
+          document.getElementById("auth-success-msg").innerText = data.message || "New code sent.";
+          successDiv.classList.remove("hidden");
+        }
+      } catch (error) {
+        document.getElementById("auth-error-msg").innerText = "Connection failed. Please try again.";
+        errorDiv.classList.remove("hidden");
       }
     }
 
@@ -1581,11 +1650,15 @@ app.get("/", (req: Request, res: Response) => {
             div.innerHTML = "<span class='italic'>No recent search history</span>";
             return;
           }
-          div.innerHTML = list.map(h => \`
-            <span onclick="applyRecentSearch('\${h.query}')" class="bg-gray-800 hover:bg-yellow-600/20 hover:text-yellow-500 cursor-pointer px-2 py-1 rounded transition border border-gray-700/50">
-              \${h.query}
-            </span>
-          \`).join("");
+          div.replaceChildren();
+          list.forEach(h => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "bg-gray-800 hover:bg-yellow-600/20 hover:text-yellow-500 cursor-pointer px-2 py-1 rounded transition border border-gray-700/50";
+            button.textContent = h.query;
+            button.addEventListener("click", () => applyRecentSearch(h.query));
+            div.appendChild(button);
+          });
         }
       } catch (err) {
         console.error(err);
@@ -2692,8 +2765,6 @@ app.get("/", (req: Request, res: Response) => {
     window.openAuthModal = openAuthModal;
     window.closeAuthModal = closeAuthModal;
     window.toggleAuthMode = toggleAuthMode;
-    window.quickFillLogin = quickFillLogin;
-    window.quickDemoLogin = quickDemoLogin;
     window.switchToRegisterWith = switchToRegisterWith;
     window.handleAuthSubmit = handleAuthSubmit;
     window.startGuestSession = startGuestSession;

@@ -1,0 +1,240 @@
+import { escapeRegExp } from "../utils/escapeRegExp";
+import { createHash, randomBytes } from "node:crypto";
+import { Request, Response } from "express";
+import bcryptjs from "bcryptjs";
+import { User } from "../models/User";
+import { IVerificationChallenge, VerificationChallenge } from "../models/VerificationChallenge";
+import { validateRegisterInput } from "../utils/validators";
+import { checkOtp, otpReady, sendOtp } from "../services/otp";
+import { signToken } from "./authController";
+
+const CHALLENGE_MS = 15 * 60 * 1000;
+const RESEND_WAIT_MS = 60 * 1000;
+const MAX_SENDS = 3;
+const MAX_FAILED_CHECKS = 10;
+
+function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+function makeToken(): string {
+  return randomBytes(32).toString("base64url");
+}
+
+function publicUser(user: any) {
+  return {
+    id: user._id,
+    username: user.username,
+    fullName: user.fullName || "",
+    email: user.email || "",
+    mobile: user.mobile || "",
+    emailVerified: !!user.emailVerifiedAt,
+    mobileVerified: !!user.mobileVerifiedAt,
+    role: user.role,
+    streak: user.streak,
+  };
+}
+
+function issueSession(res: Response, user: any, status: number, message: string): void {
+  const token = signToken(user._id.toString(), user.role, user.sessionVersion || 0);
+  res.cookie("token", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 24 * 60 * 60 * 1000,
+  });
+  res.status(status).json({ message, token, user: publicUser(user) });
+}
+
+async function lookupChallenge(rawToken: unknown, purpose: "signup" | "reset"): Promise<IVerificationChallenge | null> {
+  if (typeof rawToken !== "string" || rawToken.length < 40 || rawToken.length > 100) return null;
+  const challenge = await VerificationChallenge.findOne({ tokenHash: hashToken(rawToken), purpose });
+  if (!challenge || challenge.expiresAt.getTime() < Date.now()) return null;
+  return challenge;
+}
+
+async function deliver(challenge: IVerificationChallenge): Promise<void> {
+  // Reserve the send before calling the provider. Optimistic concurrency prevents
+  // concurrent resends from bypassing the cooldown and send limit.
+  challenge.emailSentAt = new Date();
+  challenge.emailSendCount += 1;
+  challenge.emailCodeHash = undefined;
+  await challenge.save();
+  challenge.emailCodeHash = await sendOtp(challenge.tokenHash, challenge.email);
+  await challenge.save();
+}
+
+async function verifyCode(challenge: IVerificationChallenge, emailCode: unknown): Promise<string | null> {
+  if (challenge.failedChecks >= MAX_FAILED_CHECKS) return "Too many incorrect codes. Start again.";
+  if (!checkOtp(challenge.tokenHash, emailCode, challenge.emailCodeHash)) {
+    challenge.failedChecks += 1;
+    await challenge.save();
+    return "The email code is incorrect or expired.";
+  }
+  // Atomically consume the exact version checked; concurrent requests cannot reuse it.
+  const consumed = await VerificationChallenge.deleteMany({
+    _id: challenge._id, __v: challenge.__v, emailCodeHash: challenge.emailCodeHash,
+    failedChecks: { $lt: MAX_FAILED_CHECKS }, expiresAt: { $gt: new Date() },
+  });
+  if (consumed.deletedCount !== 1) return "Verification expired or already used. Please start again.";
+
+  return null;
+}
+
+function registrationConflict(fields: string[]) {
+  const labels: Record<string, string> = { username: "Username", email: "Email address", mobile: "Mobile number" };
+  const known = [...new Set(fields.map(field => field === "usernameKey" ? "username" : field))].filter(field => labels[field]);
+  return {
+    code: "ACCOUNT_ALREADY_EXISTS",
+    fields: known,
+    error: known.length ? known.map(field => labels[field] + " is already registered.").join(" ") + " Use different details or sign in to your existing account."
+      : "An account with these details already exists. Sign in or check your signup details.",
+  };
+}
+
+export async function startRegistration(req: Request, res: Response): Promise<void> {
+  try {
+    const validationError = validateRegisterInput(req.body);
+    if (validationError) { res.status(400).json({ error: validationError }); return; }
+    if (!otpReady()) { res.status(503).json({ error: "Verification delivery is not configured." }); return; }
+
+    const username = req.body.username.trim();
+    const usernameKey = username.toLowerCase();
+    const email = req.body.email.trim().toLowerCase();
+    const mobile = req.body.mobile.trim();
+    const existing = await User.find({ $or: [
+      { usernameKey },
+      { username: new RegExp(`^${username}$`, "i") },
+      { email },
+      { mobile },
+    ] });
+    const fields = new Set<string>();
+    for (const account of existing) {
+      if ((account.usernameKey || account.username).toLowerCase() === usernameKey) fields.add("username");
+      if (account.email?.toLowerCase() === email) fields.add("email");
+      if (account.mobile === mobile) fields.add("mobile");
+    }
+    if (fields.size) { res.status(409).json(registrationConflict([...fields])); return; }
+    const active = await VerificationChallenge.findOne({
+      purpose: "signup", expiresAt: { $gt: new Date() },
+      $or: [{ usernameKey }, { email }, { mobile }],
+    });
+    if (active) { res.status(429).json({ error: "A verification is already in progress for these details. Please finish it or wait 15 minutes." }); return; }
+
+    const token = makeToken();
+    const challenge = await VerificationChallenge.create({
+      tokenHash: hashToken(token), purpose: "signup", username, usernameKey,
+      fullName: req.body.fullName.trim(), passwordHash: await bcryptjs.hash(req.body.password, 12),
+      email, mobile, emailVerified: false,
+      emailSendCount: 0, failedChecks: 0,
+      expiresAt: new Date(Date.now() + CHALLENGE_MS),
+    });
+    try {
+      await deliver(challenge);
+    } catch (error) {
+      await VerificationChallenge.deleteMany({ tokenHash: challenge.tokenHash });
+      throw error;
+    }
+    res.status(202).json({ message: "Verification code sent to your email.", challengeToken: token, expiresInSeconds: CHALLENGE_MS / 1000 });
+  } catch (error) {
+    console.error("Registration start failed:", error);
+    res.status(503).json({ error: "Could not start verification. Please try again shortly." });
+  }
+}
+
+export async function completeRegistration(req: Request, res: Response): Promise<void> {
+  try {
+    const challenge = await lookupChallenge(req.body?.challengeToken, "signup");
+    if (!challenge) { res.status(400).json({ error: "Signup expired. Please start again." }); return; }
+    const error = await verifyCode(challenge, req.body.emailCode);
+    if (error) { res.status(challenge.failedChecks >= MAX_FAILED_CHECKS ? 429 : 400).json({ error }); return; }
+    const user = await User.create({
+      username: challenge.username, usernameKey: challenge.usernameKey,
+      fullName: challenge.fullName, password: challenge.passwordHash,
+      email: challenge.email, mobile: challenge.mobile,
+      emailVerifiedAt: new Date(),
+      role: "student", streak: 1,
+    });
+    await VerificationChallenge.deleteMany({ tokenHash: challenge.tokenHash });
+    issueSession(res, user, 201, "Account created and email verified.");
+  } catch (error: any) {
+    if (error?.code === 11000) { res.status(409).json(registrationConflict(Object.keys(error.keyPattern || error.keyValue || {}))); return; }
+    console.error("Registration verification failed:", error);
+    res.status(503).json({ error: "Could not complete verification. Please try again." });
+  }
+}
+
+export async function resendCode(req: Request, res: Response): Promise<void> {
+  try {
+    const purpose = req.body?.purpose === "reset" ? "reset" : "signup";
+    if (req.body?.channel && req.body.channel !== "email") { res.status(400).json({ error: "Only email verification is available." }); return; }
+    const challenge = await lookupChallenge(req.body?.challengeToken, purpose);
+    if (!challenge) { res.status(400).json({ error: "Verification expired. Please start again." }); return; }
+    if (purpose === "reset" && !challenge.userId) { res.status(200).json({ message: "If this account is eligible, a code has been sent." }); return; }
+    if (challenge.emailVerified) { res.status(200).json({ message: "Email is already verified." }); return; }
+    if (challenge.emailSendCount >= MAX_SENDS) { res.status(429).json({ error: "Code send limit reached. Start again after this attempt expires." }); return; }
+    if (challenge.emailSentAt && Date.now() - challenge.emailSentAt.getTime() < RESEND_WAIT_MS) { res.status(429).json({ error: "Please wait one minute before requesting another code." }); return; }
+    await deliver(challenge);
+    res.status(200).json({ message: "A new code has been sent." });
+  } catch (error) {
+    console.error("Code resend failed:", error);
+    res.status(503).json({ error: "Could not resend the code. Please try again." });
+  }
+}
+
+export async function startPasswordReset(req: Request, res: Response): Promise<void> {
+  try {
+    const identifier = typeof req.body?.identifier === "string" ? req.body.identifier.trim() : "";
+    if (identifier.length < 3 || identifier.length > 254) { res.status(400).json({ error: "Enter your username or email." }); return; }
+    if (!otpReady()) { res.status(503).json({ error: "Verification delivery is not configured." }); return; }
+    const key = identifier.toLowerCase();
+    const escapedIdentifier = escapeRegExp(identifier);
+    const user = await User.findOne({ $or: [{ usernameKey: key }, { email: key }, { username: new RegExp(`^${escapedIdentifier}$`, "i") }] });
+    const eligible = user && user.role !== "guest" && user.email && user.emailVerifiedAt;
+    if (eligible) {
+      const active = await VerificationChallenge.findOne({ purpose: "reset", userId: user._id, expiresAt: { $gt: new Date() } });
+      if (active) { res.status(429).json({ error: "A reset is already in progress. Please finish it or wait 15 minutes." }); return; }
+    }
+    const token = makeToken();
+    const challenge = await VerificationChallenge.create({
+      tokenHash: hashToken(token), purpose: "reset", username: user?.username || identifier,
+      usernameKey: user?.usernameKey || key, userId: eligible ? user!._id : undefined,
+      email: eligible ? user!.email : "unavailable@example.invalid",
+      mobile: eligible ? user!.mobile : "+10000000000",
+      emailVerified: false,
+      emailSendCount: 0, failedChecks: 0,
+      expiresAt: new Date(Date.now() + CHALLENGE_MS),
+    });
+    if (eligible) {
+      try { await deliver(challenge); }
+      catch (error) { await VerificationChallenge.deleteMany({ tokenHash: challenge.tokenHash }); throw error; }
+    }
+    res.status(202).json({ message: "If this account has a verified email, a code has been sent.", challengeToken: token, expiresInSeconds: CHALLENGE_MS / 1000 });
+  } catch (error) {
+    console.error("Password reset start failed:", error);
+    res.status(503).json({ error: "Could not start password reset. Please try again." });
+  }
+}
+
+export async function completePasswordReset(req: Request, res: Response): Promise<void> {
+  try {
+    const { challengeToken, emailCode, newPassword, confirmPassword } = req.body || {};
+    if (typeof newPassword !== "string" || newPassword.length < 10 || Buffer.byteLength(newPassword, "utf8") > 72 || !/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword) || newPassword !== confirmPassword) {
+      res.status(400).json({ error: "New passwords must match and contain at least 10 characters, a letter, and a number." }); return;
+    }
+    const challenge = await lookupChallenge(challengeToken, "reset");
+    if (!challenge || !challenge.userId) { res.status(400).json({ error: "Invalid or expired reset request." }); return; }
+    const error = await verifyCode(challenge, emailCode);
+    if (error) { res.status(challenge.failedChecks >= MAX_FAILED_CHECKS ? 429 : 400).json({ error }); return; }
+    const user = await User.findById(challenge.userId);
+    if (!user) { res.status(400).json({ error: "Invalid or expired reset request." }); return; }
+    user.password = await bcryptjs.hash(newPassword, 12);
+    user.sessionVersion = (user.sessionVersion || 0) + 1;
+    await user.save();
+    await VerificationChallenge.deleteMany({ tokenHash: challenge.tokenHash });
+    res.status(200).json({ message: "Password updated. You can sign in now." });
+  } catch (error) {
+    console.error("Password reset verification failed:", error);
+    res.status(503).json({ error: "Could not complete password reset. Please try again." });
+  }
+}

@@ -56,4 +56,6 @@ const CharacterSchema = new Schema<ICharacter>(
   }
 );
 
+CharacterSchema.index({ name: 1 }, { unique: true });
+
 export const Character = model<ICharacter>("Character", CharacterSchema);

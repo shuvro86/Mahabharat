@@ -2,14 +2,12 @@ import { Request, Response } from "express";
 import { Character } from "../models/Character";
 import { generateCharacterAvatarSVG } from "../utils/characterAvatar";
 
-function escapeRegExp(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+import { escapeRegExp } from "../utils/escapeRegExp";
 
 export const getAllCharacters = async (req: Request, res: Response): Promise<void> => {
   try {
-    const search = req.query.search as string;
-    const alliance = req.query.alliance as string;
+    const search = typeof req.query.search === "string" ? req.query.search.slice(0, 200) : "";
+    const alliance = typeof req.query.alliance === "string" ? req.query.alliance.slice(0, 100) : "";
     const query: any = {};
 
     if (search) {
@@ -42,7 +40,7 @@ export const getAllCharacters = async (req: Request, res: Response): Promise<voi
 
     res.status(200).json(processed);
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to fetch characters: " + err.message });
+    res.status(500).json({ error: "Failed to fetch characters." });
   }
 };
 
@@ -63,7 +61,7 @@ export const getCharacterById = async (req: Request, res: Response): Promise<voi
     }
     res.status(200).json(char);
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to fetch character: " + err.message });
+    res.status(500).json({ error: "Failed to fetch character." });
   }
 };
 
@@ -72,7 +70,7 @@ export const createCharacter = async (req: Request, res: Response): Promise<void
     const newChar = await Character.create(req.body);
     res.status(201).json(newChar);
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to create character: " + err.message });
+    res.status(500).json({ error: "Failed to create character." });
   }
 };
 
@@ -85,7 +83,7 @@ export const updateCharacter = async (req: Request, res: Response): Promise<void
     }
     res.status(200).json(updated);
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to update character: " + err.message });
+    res.status(500).json({ error: "Failed to update character." });
   }
 };
 
@@ -98,6 +96,6 @@ export const deleteCharacter = async (req: Request, res: Response): Promise<void
     }
     res.status(200).json({ message: "Character deleted successfully" });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to delete character: " + err.message });
+    res.status(500).json({ error: "Failed to delete character." });
   }
 };

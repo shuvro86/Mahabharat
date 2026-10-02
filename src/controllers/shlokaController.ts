@@ -1,14 +1,12 @@
 import { Request, Response } from "express";
 import { Shloka } from "../models/Shloka";
 
-function escapeRegExp(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+import { escapeRegExp } from "../utils/escapeRegExp";
 
 export const getAllShlokas = async (req: Request, res: Response): Promise<void> => {
   try {
     const chapter = parseInt(req.query.chapter as string);
-    const search = req.query.search as string;
+    const search = typeof req.query.search === "string" ? req.query.search.slice(0, 200) : "";
     const query: any = {};
 
     if (chapter) {
@@ -33,7 +31,7 @@ export const getAllShlokas = async (req: Request, res: Response): Promise<void> 
     const shlokas = await Shloka.find(query);
     res.status(200).json(shlokas);
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to fetch shlokas: " + err.message });
+    res.status(500).json({ error: "Failed to fetch shlokas." });
   }
 };
 
@@ -46,7 +44,7 @@ export const getShlokaById = async (req: Request, res: Response): Promise<void> 
     }
     res.status(200).json(shloka);
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to fetch shloka: " + err.message });
+    res.status(500).json({ error: "Failed to fetch shloka." });
   }
 };
 
@@ -55,7 +53,7 @@ export const createShloka = async (req: Request, res: Response): Promise<void> =
     const newShloka = await Shloka.create(req.body);
     res.status(201).json(newShloka);
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to create shloka: " + err.message });
+    res.status(500).json({ error: "Failed to create shloka." });
   }
 };
 
@@ -68,7 +66,7 @@ export const updateShloka = async (req: Request, res: Response): Promise<void> =
     }
     res.status(200).json(updated);
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to update shloka: " + err.message });
+    res.status(500).json({ error: "Failed to update shloka." });
   }
 };
 
@@ -81,6 +79,6 @@ export const deleteShloka = async (req: Request, res: Response): Promise<void> =
     }
     res.status(200).json({ message: "Shloka deleted successfully" });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to delete shloka: " + err.message });
+    res.status(500).json({ error: "Failed to delete shloka." });
   }
 };

@@ -1,4 +1,6 @@
 .hall-of-frame .hof-hero { isolation: isolate; overflow: hidden; background: #17120f; }
+.hall-of-frame .hof-video-frame { width:100%; aspect-ratio:16/9; max-height:min(70vh,720px); background:#090b10; }
+.hall-of-frame .hof-video-frame iframe { display:block; width:100%; height:100%; border:0; }
 .hall-of-frame .hof-art { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center 42%; animation: hof-drift 28s ease-in-out infinite alternate; }
 .hall-of-frame .hof-shade { position:absolute; inset:0; background:linear-gradient(90deg,rgba(7,9,14,.9),rgba(7,9,14,.54) 45%,rgba(7,9,14,.06)),linear-gradient(0deg,rgba(7,9,14,.75),transparent 65%); }
 .hall-of-frame .hof-day-badge { width:max-content; border:1px solid rgba(252,211,77,.48); border-radius:999px; background:rgba(38,24,9,.72); padding:.4rem .8rem; color:#fde68a; font-size:.65rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; backdrop-filter:blur(8px); }

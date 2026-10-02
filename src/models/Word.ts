@@ -117,4 +117,6 @@ WordSchema.virtual("sanskrit")
     this.arabic = val;
   });
 
+WordSchema.index({ transliteration: 1, meaning: 1 }, { unique: true });
+
 export const Word = model<IWord>("Word", WordSchema);

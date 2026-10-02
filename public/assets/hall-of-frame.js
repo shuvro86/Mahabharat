@@ -1,46 +1,6 @@
 (function () {
   const story = "On the tenth day of the Kurukshetra war, Shikhandi advances before Arjuna. Bound by his vow, Bhishma lowers his bow. Arjuna releases his arrows, and the grandsire falls upon a bed of arrows. His fall changes the course of the war, while Bhishma remains alive and chooses the time of his final departure.";
 
-  const video = function () { return document.getElementById("hall-frame-video"); };
-  const videoButton = function () { return document.getElementById("hof-video-toggle"); };
-  const resetVideoButton = function () {
-    const button = videoButton();
-    const label = document.getElementById("hof-video-label");
-    if (!button || !label) return;
-    const playing = video() && !video().paused && !video().ended;
-    label.textContent = playing ? "Pause cinematic scene" : "Play cinematic scene";
-    button.setAttribute("aria-pressed", playing ? "true" : "false");
-    button.querySelector("i").className = playing ? "fa-solid fa-pause mr-2" : "fa-solid fa-play mr-2";
-  };
-
-  window.hallFrameToggleVideo = async function () {
-    const scene = video();
-    if (!scene) return;
-    if (scene.paused || scene.ended) {
-      if (scene.ended) scene.currentTime = 0;
-      try { await scene.play(); } catch (_) {
-        document.getElementById("hof-speech-status").textContent = "The scene could not start. Try again or use Download MP4.";
-      }
-    } else {
-      scene.pause();
-    }
-    resetVideoButton();
-  };
-
-  document.addEventListener("DOMContentLoaded", function () {
-    const scene = video();
-    if (!scene) return;
-    ["play", "pause", "ended"].forEach(function (eventName) {
-      scene.addEventListener(eventName, resetVideoButton);
-    });
-  });
-
-  window.hallFrameStopScene = function () {
-    const scene = video();
-    if (scene && !scene.paused) scene.pause();
-    resetVideoButton();
-  };
-
   window.hallFrameReadStory = function () {
     if (!("speechSynthesis" in window)) {
       document.getElementById("hof-speech-status").textContent = "Narration is not available in this browser. You can read the story above.";

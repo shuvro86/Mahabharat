@@ -1,75 +1,54 @@
 import mongoose from "mongoose";
-import { MongoMemoryServer } from "mongodb-memory-server";
 import { seedDatabase } from "../utils/seeder";
 import { patchAllModels } from "./inMemoryDb";
-
-// Patch all Mongoose models so queries transparently fallback to in-memory store if Mongoose is disconnected
-patchAllModels();
-
-let mongod: any = null;
 
 export const dbStatus = {
   isConnected: false,
   isFallback: false,
-  uri: ""
 };
 
-export const connectDB = async (): Promise<void> => {
-  const uri = process.env.MONGODB_URI;
-  
-  if (uri && uri !== "123") {
-    try {
-      console.log("Attempting to connect to configured MONGODB_URI...");
-      await mongoose.connect(uri, {
-        serverSelectionTimeoutMS: 3000
-      });
-      dbStatus.isConnected = true;
-      dbStatus.isFallback = false;
-      dbStatus.uri = uri;
-      console.log("MongoDB Connected to Atlas.");
-      
-      await checkAndSeed();
-      return;
-    } catch (err: any) {
-      console.error(`Failed to connect to MongoDB Atlas: ${err.message}`);
+let connectionPromise: Promise<void> | null = null;
+let memoryPatched = false;
+
+async function connect(): Promise<void> {
+  const uri = process.env.MONGODB_URI?.trim();
+  if (!uri || uri === "123") {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("MONGODB_URI is required in production.");
     }
+    if (!memoryPatched) {
+      patchAllModels();
+      memoryPatched = true;
+    }
+    dbStatus.isFallback = true;
+    console.warn("Using process-local data for development. Configure MONGODB_URI for persistence.");
+    await seedDatabase();
+    dbStatus.isConnected = true;
+    return;
   }
 
-  // Pure JavaScript In-Memory Engine Fallback (resilient against container sandbox limits & spawn errors)
-  console.log("Activating pure JavaScript in-memory database engine fallback...");
+  await mongoose.connect(uri, { serverSelectionTimeoutMS: 8000, maxPoolSize: 10 });
+  dbStatus.isFallback = false;
+  console.log("MongoDB connected.");
+  await seedDatabase();
   dbStatus.isConnected = true;
-  dbStatus.isFallback = true;
-  dbStatus.uri = "in-memory-js-engine";
+}
 
-  await checkAndSeed();
-};
-
-const checkAndSeed = async () => {
-  try {
-    // Dynamic import of models to avoid circular dependencies
-    const { Word } = await import("../models/Word");
-    const { Character } = await import("../models/Character");
-    const { User } = await import("../models/User");
-    const wordCount = await Word.countDocuments();
-    const characterCount = await Character.countDocuments();
-    const userCount = await User.countDocuments();
-    const characterWithNoAvatar = await Character.findOne({ avatar: { $exists: false } });
-    
-    const missingDemoUsers = process.env.NODE_ENV !== "production" && userCount === 0;
-    if (wordCount < 30 || characterCount === 0 || missingDemoUsers || characterWithNoAvatar) {
-      console.log("Empty or outdated database detected (or missing avatar fields/users). Purging and re-seeding...");
-      await seedDatabase();
-    } else {
-      console.log("Existing data detected. Skipping seeding.");
-    }
-  } catch (err: any) {
-    console.log("Database empty check or seeding completed via fallback.");
+export function connectDB(): Promise<void> {
+  if (dbStatus.isConnected && (dbStatus.isFallback || mongoose.connection.readyState === 1)) return Promise.resolve();
+  if (mongoose.connection.readyState !== 1) dbStatus.isConnected = false;
+  if (!connectionPromise) {
+    connectionPromise = connect().catch((error) => {
+      dbStatus.isConnected = false;
+      connectionPromise = null;
+      throw error;
+    });
   }
-};
+  return connectionPromise;
+}
 
-export const disconnectDB = async (): Promise<void> => {
+export async function disconnectDB(): Promise<void> {
   await mongoose.disconnect();
-  if (mongod) {
-    await mongod.stop();
-  }
-};
+  connectionPromise = null;
+  dbStatus.isConnected = false;
+}
